@@ -1,0 +1,27 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# builds
+.next
+dist
+out
+build
+
+# env
+.env
+.env.local
+.env.*.local
+
+# turbo
+.turbo
+
+# prisma
+prisma/migrations/dev.db
+
+# misc
+.DS_Store
+*.pem
+.vercel
+coverage
+*.log

@@ -1,0 +1,11 @@
+FROM node:20-alpine
+RUN npm install -g pnpm@9
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/types/package.json ./packages/types/
+COPY packages/database/package.json ./packages/database/
+RUN pnpm install
+COPY . .
+WORKDIR /app/apps/api
+CMD ["pnpm", "run", "start:dev"]

@@ -1,0 +1,30 @@
+{
+  "name": "tableflow",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:generate": "pnpm --filter @tableflow/database db:generate",
+    "db:migrate:dev": "pnpm --filter @tableflow/database db:migrate:dev",
+    "db:migrate:deploy": "pnpm --filter @tableflow/database db:migrate:deploy",
+    "db:seed": "pnpm --filter @tableflow/database db:seed",
+    "db:studio": "pnpm --filter @tableflow/database db:studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.3",
+    "typescript": "^5.4.5",
+    "@types/node": "^20.12.7",
+    "prettier": "^3.2.5",
+    "eslint": "^8.57.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
