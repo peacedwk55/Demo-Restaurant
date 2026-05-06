@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /mnt/d/Demo-Restaurant/apps /mnt/d/Demo-Restaurant/packages -name \"*.spec.ts\" -o -name \"*.test.ts\" 2>/dev/null | grep -v node_modules)",
+      "Read(//mnt/d/Demo-Restaurant/**)",
+      "Bash(grep -r '\"test\"' /mnt/d/Demo-Restaurant/apps/api/package.json /mnt/d/Demo-Restaurant/package.json 2>/dev/null)",
+      "Read(//mnt/d/Demo-Restaurant/apps/api/**)",
+      "Bash(dir /s /b \"d:\\\\Demo-Restaurant\\\\apps\\\\customer\\\\src\\\\app\")"
+    ]
+  }
+}
