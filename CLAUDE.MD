@@ -205,6 +205,8 @@ pnpm db:seed
 #### Step 5 — รันระบบทั้งหมดพร้อมกัน
 
 ```bash
+pnpm install
+
 pnpm dev
 ```
 
@@ -489,3 +491,25 @@ To onboard a new restaurant:
 7. Run `pnpm db:migrate:deploy` against prod DB
 
 Horizontal scaling: API is stateless. Socket.IO requires sticky sessions or Redis adapter for multi-instance.
+
+
+
+เปลี่ยนแค่ reference_id เป็น order ใหม่:
+
+
+curl -X POST http://localhost:3001/api/webhooks/xendit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "qr.payment",
+    "business_id": "test",
+    "created": "2026-05-07T00:00:00Z",
+    "data": {
+      "id": "qr_test_123",
+      "reference_id": "cmovnko120005a6qfhu1h6wz2",
+      "status": "SUCCEEDED",
+      "currency": "THB",
+      "amount": 100,
+      "qr_string": "test",
+      "channel_code": "PROMPTPAY"
+    }
+  }'
