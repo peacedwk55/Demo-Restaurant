@@ -181,6 +181,7 @@ export interface OrderItemDto {
 
 export interface OrderDto {
   id: string
+  tenantId: string
   tableId: string
   tableCode: string
   tableName: string

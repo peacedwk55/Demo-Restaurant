@@ -1,13 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service'
 import { EventsGateway } from '../websocket/events.gateway'
 import { PaymentMethod, WS_EVENTS } from '@tableflow/types'
+import { XenditService } from './xendit.service'
 
 @Injectable()
 export class PaymentService {
+  private readonly logger = new Logger(PaymentService.name)
+
   constructor(
     private readonly prisma: PrismaService,
-    private readonly events: EventsGateway
+    private readonly events: EventsGateway,
+    private readonly xendit: XenditService,
   ) {}
 
   async getOrCreatePayment(tenantSlug: string, orderId: string) {
@@ -24,10 +28,24 @@ export class PaymentService {
       return this.toDto(order.payment)
     }
 
-    // Generate PromptPay QR placeholder (in production, integrate with payment provider)
-    const promptPayQrUrl = tenant.promptPayId
-      ? `https://promptpay.io/${tenant.promptPayId}/${order.totalAmount}.png`
-      : null
+    // Generate PromptPay QR via Xendit (if configured), else fallback to promptpay.io
+    let promptPayQrUrl: string | null = null
+    let transactionRef: string | null = null
+
+    if (this.xendit.isConfigured) {
+      try {
+        const qr = await this.xendit.createQR(orderId, Number(order.totalAmount))
+        promptPayQrUrl = qr.qrImage    // base64 PNG data URI
+        transactionRef = qr.qrId      // Xendit QR id
+      } catch (err: any) {
+        this.logger.error(`Xendit QR failed, falling back: ${err.message}`)
+      }
+    }
+
+    // Fallback: promptpay.io static QR (ต้องให้แคชเชียร์กดยืนยันเอง)
+    if (!promptPayQrUrl && tenant.promptPayId) {
+      promptPayQrUrl = `https://promptpay.io/${tenant.promptPayId}/${order.totalAmount}.png`
+    }
 
     const payment = await this.prisma.payment.create({
       data: {
@@ -37,6 +55,7 @@ export class PaymentService {
         method: 'PROMPTPAY',
         status: 'PENDING',
         promptPayQrUrl,
+        transactionRef,
       },
     })
 
@@ -87,6 +106,23 @@ export class PaymentService {
     }
 
     return this.toDto(updated)
+  }
+
+  /**
+   * Called by webhook controller when Xendit confirms payment automatically
+   */
+  async confirmByWebhook(orderId: string, xenditQrId: string) {
+    const payment = await this.prisma.payment.findUnique({ where: { orderId } })
+    if (!payment) throw new NotFoundException('Payment not found')
+    if (payment.status === 'CONFIRMED') return this.toDto(payment)  // idempotent
+
+    return this.confirmPayment(
+      payment.tenantId,
+      orderId,
+      'PROMPTPAY',
+      xenditQrId,
+      'xendit-webhook',
+    )
   }
 
   async getPaymentByOrder(tenantId: string, orderId: string) {

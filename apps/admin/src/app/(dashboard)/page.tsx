@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { adminApi } from '@/lib/api'
 import { formatPrice } from '@/lib/utils'
 import { DashboardSummary, SalesDataPoint, PopularItem } from '@tableflow/types'
@@ -9,6 +9,8 @@ import {
   ResponsiveContainer, BarChart, Bar,
 } from 'recharts'
 import { cn } from '@/lib/utils'
+import { useAdminSocket } from '@/hooks/useSocket'
+import { sounds } from '@/lib/sound'
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
@@ -16,11 +18,27 @@ export default function DashboardPage() {
   const [popular, setPopular] = useState<PopularItem[]>([])
   const [loading, setLoading] = useState(true)
 
+  const fetchSummary = useCallback(() => {
+    adminApi.getAnalytics().then(setSummary)
+  }, [])
+
   useEffect(() => {
     Promise.all([adminApi.getAnalytics(), adminApi.getSalesData(7), adminApi.getPopularItems()])
       .then(([s, sl, p]) => { setSummary(s); setSales(sl); setPopular(p) })
       .finally(() => setLoading(false))
   }, [])
+
+  // Real-time: re-fetch summary เมื่อมีออร์เดอร์ใหม่หรือโต๊ะเปลี่ยนสถานะ
+  useAdminSocket({
+    onOrderNew: ({ order }) => {
+      fetchSummary()
+      sounds.orderNew(order.tableCode, order.items.length)
+    },
+    onTableUpdated: fetchSummary,
+    onPaymentRequested: (payload) => {
+      sounds.paymentRequested(payload.tableCode)
+    },
+  })
 
   if (loading) {
     return (

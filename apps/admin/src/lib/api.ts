@@ -93,4 +93,7 @@ export const adminApi = {
 
   getPendingCalls: () => request<any[]>('/admin/staff-calls/pending'),
   resolveCall: (callId: string) => request(`/admin/staff-calls/${callId}/resolve`, { method: 'PATCH' }),
+
+  getReviews: () => request<any[]>('/admin/reviews'),
+  getReviewStats: () => request<any>('/admin/reviews/stats'),
 }

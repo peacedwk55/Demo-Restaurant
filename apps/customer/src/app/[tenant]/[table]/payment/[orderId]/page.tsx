@@ -5,7 +5,6 @@ import { api } from '@/lib/api'
 import { PaymentDto } from '@tableflow/types'
 import { formatPrice } from '@/lib/utils'
 import { ArrowLeft, CheckCircle2, RefreshCw } from 'lucide-react'
-import Image from 'next/image'
 import toast from 'react-hot-toast'
 
 export default function PaymentPage() {
@@ -91,13 +90,11 @@ export default function PaymentPage() {
               <span className="text-xl">💳</span>
               <h2 className="text-base font-bold text-stone-900">PromptPay QR</h2>
             </div>
-            <div className="relative w-52 h-52 bg-white p-3 rounded-2xl border-2 border-stone-100">
-              <Image
+            <div className="w-52 h-52 bg-white p-3 rounded-2xl border-2 border-stone-100 flex items-center justify-center">
+              <img
                 src={payment.promptPayQrUrl}
                 alt="PromptPay QR"
-                fill
-                className="object-contain p-2"
-                unoptimized
+                className="w-full h-full object-contain"
               />
             </div>
             <p className="text-xs text-stone-500 text-center">

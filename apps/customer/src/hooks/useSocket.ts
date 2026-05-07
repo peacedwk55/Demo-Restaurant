@@ -11,33 +11,29 @@ interface UseOrderSocketOptions {
 }
 
 export function useOrderSocket({ tenantId, tableId, onOrderUpdated, onPaymentConfirmed }: UseOrderSocketOptions) {
-  const joinedRef = useRef(false)
+  const cbRef = useRef({ onOrderUpdated, onPaymentConfirmed })
+  useEffect(() => { cbRef.current = { onOrderUpdated, onPaymentConfirmed } })
 
   useEffect(() => {
     if (!tenantId || !tableId) return
     const socket = getSocket()
 
-    const join = () => {
-      if (!joinedRef.current) {
-        socket.emit(WS_EVENTS.JOIN_TABLE, { tenantId, tableId })
-        joinedRef.current = true
-      }
-    }
+    const join = () => socket.emit(WS_EVENTS.JOIN_TABLE, { tenantId, tableId })
 
-    if (socket.connected) {
-      join()
-    } else {
-      socket.once('connect', join)
-    }
+    socket.on('connect', join)
+    if (socket.connected) join()
 
-    if (onOrderUpdated) socket.on(WS_EVENTS.ORDER_UPDATED, onOrderUpdated)
-    if (onPaymentConfirmed) socket.on(WS_EVENTS.PAYMENT_CONFIRMED, onPaymentConfirmed)
+    const onUpdated   = (d: any) => cbRef.current.onOrderUpdated?.(d)
+    const onConfirmed = (d: any) => cbRef.current.onPaymentConfirmed?.(d)
+
+    socket.on(WS_EVENTS.ORDER_UPDATED,     onUpdated)
+    socket.on(WS_EVENTS.PAYMENT_CONFIRMED, onConfirmed)
 
     return () => {
-      socket.off(WS_EVENTS.ORDER_UPDATED, onOrderUpdated)
-      socket.off(WS_EVENTS.PAYMENT_CONFIRMED, onPaymentConfirmed)
+      socket.off('connect',                   join)
+      socket.off(WS_EVENTS.ORDER_UPDATED,     onUpdated)
+      socket.off(WS_EVENTS.PAYMENT_CONFIRMED, onConfirmed)
       socket.emit(WS_EVENTS.LEAVE_TABLE, { tenantId, tableId })
-      joinedRef.current = false
     }
   }, [tenantId, tableId])
 }

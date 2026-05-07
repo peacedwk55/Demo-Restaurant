@@ -189,6 +189,7 @@ export class OrderService {
   private toDto(order: any): OrderDto {
     return {
       id: order.id,
+      tenantId: order.tenantId,
       tableId: order.tableId,
       tableCode: order.table.code,
       tableName: order.table.name,

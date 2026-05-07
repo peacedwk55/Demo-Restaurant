@@ -4,31 +4,53 @@ import { adminApi } from '@/lib/api'
 import { useAdminSocket } from '@/hooks/useSocket'
 import { OrderDto, OrderStatus } from '@tableflow/types'
 import { cn } from '@/lib/utils'
-import { timeAgo, formatTime } from '@/lib/utils'
-import { ChefHat, CheckCircle2, Clock, RefreshCw, Bell } from 'lucide-react'
+import { timeAgo } from '@/lib/utils'
+import { ChefHat, RefreshCw, Clock, CheckCircle2, Flame, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { sounds } from '@/lib/sound'
 
 const STATUS_CONFIG = {
-  PENDING:   { label: 'New Order', bg: 'bg-red-50',    border: 'border-red-200',   badge: 'bg-red-500',    text: 'text-red-700' },
-  CONFIRMED: { label: 'Confirmed', bg: 'bg-amber-50',  border: 'border-amber-200', badge: 'bg-amber-500',  text: 'text-amber-700' },
-  PREPARING: { label: 'Preparing', bg: 'bg-blue-50',   border: 'border-blue-200',  badge: 'bg-blue-500',   text: 'text-blue-700' },
-  READY:     { label: 'Ready',     bg: 'bg-green-50',  border: 'border-green-200', badge: 'bg-green-500',  text: 'text-green-700' },
-  SERVED:    { label: 'Served',    bg: 'bg-gray-50',   border: 'border-gray-200',  badge: 'bg-gray-400',   text: 'text-gray-500' },
-  CANCELLED: { label: 'Cancelled', bg: 'bg-gray-50',   border: 'border-gray-200',  badge: 'bg-gray-400',   text: 'text-gray-500' },
+  PENDING:   { label: 'ออร์เดอร์ใหม่', labelEn: 'New',       headerBg: 'bg-red-500',    cardBorder: 'border-red-200',   cardBg: 'bg-red-50',   badge: 'bg-red-500',   ring: 'ring-red-300' },
+  CONFIRMED: { label: 'ยืนยันแล้ว',    labelEn: 'Confirmed', headerBg: 'bg-amber-500',  cardBorder: 'border-amber-200', cardBg: 'bg-amber-50', badge: 'bg-amber-500', ring: '' },
+  PREPARING: { label: 'กำลังทำอาหาร', labelEn: 'Preparing', headerBg: 'bg-blue-500',   cardBorder: 'border-blue-200',  cardBg: 'bg-blue-50',  badge: 'bg-blue-500',  ring: '' },
+  READY:     { label: 'พร้อมเสิร์ฟ',  labelEn: 'Ready',     headerBg: 'bg-emerald-500',cardBorder: 'border-emerald-200',cardBg:'bg-emerald-50',badge:'bg-emerald-500',ring: '' },
+  SERVED:    { label: 'เสิร์ฟแล้ว',   labelEn: 'Served',    headerBg: 'bg-gray-400',   cardBorder: 'border-gray-200',  cardBg: 'bg-gray-50',  badge: 'bg-gray-400',  ring: '' },
+  CANCELLED: { label: 'ยกเลิก',       labelEn: 'Cancelled', headerBg: 'bg-gray-400',   cardBorder: 'border-gray-200',  cardBg: 'bg-gray-50',  badge: 'bg-gray-400',  ring: '' },
 }
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
-  PENDING: 'CONFIRMED',
-  CONFIRMED: 'PREPARING',
-  PREPARING: 'READY',
-  READY: 'SERVED',
+  PENDING: 'CONFIRMED', CONFIRMED: 'PREPARING', PREPARING: 'READY', READY: 'SERVED',
 }
 
-const NEXT_ACTION_LABEL: Partial<Record<OrderStatus, string>> = {
-  PENDING: 'Accept',
-  CONFIRMED: 'Start Cooking',
-  PREPARING: 'Mark Ready',
-  READY: 'Mark Served',
+const NEXT_ACTION: Partial<Record<OrderStatus, { label: string; icon: React.ElementType; color: string }>> = {
+  PENDING:   { label: 'รับออร์เดอร์',   icon: CheckCircle2, color: 'bg-red-500 hover:bg-red-600' },
+  CONFIRMED: { label: 'เริ่มทำอาหาร',  icon: Flame,        color: 'bg-amber-500 hover:bg-amber-600' },
+  PREPARING: { label: 'พร้อมเสิร์ฟ',   icon: Zap,          color: 'bg-blue-500 hover:bg-blue-600' },
+  READY:     { label: 'เสิร์ฟแล้ว',    icon: CheckCircle2, color: 'bg-emerald-500 hover:bg-emerald-600' },
+}
+
+function ElapsedTimer({ createdAt }: { createdAt: string }) {
+  const [elapsed, setElapsed] = useState(() => Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000))
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000))
+    }, 30000)
+    return () => clearInterval(id)
+  }, [createdAt])
+
+  const isUrgent = elapsed >= 15
+  const isWarning = elapsed >= 8
+
+  return (
+    <div className={cn(
+      'flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full',
+      isUrgent ? 'bg-red-100 text-red-600' : isWarning ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500'
+    )}>
+      <Clock className="w-3 h-3" />
+      {elapsed < 1 ? '<1 นาที' : `${elapsed} นาที`}
+    </div>
+  )
 }
 
 export default function KitchenPage() {
@@ -41,7 +63,7 @@ export default function KitchenPage() {
       const data = await adminApi.getOrders()
       setOrders(data)
     } catch {
-      toast.error('Failed to load orders')
+      toast.error('โหลดออร์เดอร์ไม่สำเร็จ')
     } finally {
       setLoading(false)
     }
@@ -53,14 +75,20 @@ export default function KitchenPage() {
     onOrderNew: ({ order }) => {
       setOrders((prev) => {
         if (prev.find((o) => o.id === order.id)) return prev
-        toast('🍽️ New order: Table ' + order.tableCode, { icon: '🔔' })
+        sounds.orderNew(order.tableCode, order.items.length)
+        toast(`โต๊ะ ${order.tableCode} สั่งอาหาร!`, { icon: '🔔', duration: 5000 })
         return [order, ...prev]
       })
     },
     onOrderUpdated: ({ orderId, status }) => {
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: status as OrderStatus } : o))
-      )
+      setOrders((prev) => {
+        const updated = prev.map((o) => (o.id === orderId ? { ...o, status: status as OrderStatus } : o))
+        if (status === 'READY') {
+          const order = updated.find((o) => o.id === orderId)
+          if (order) sounds.foodReady(order.tableCode)
+        }
+        return updated
+      })
     },
   })
 
@@ -70,9 +98,9 @@ export default function KitchenPage() {
     try {
       const updated = await adminApi.updateOrderStatus(order.id, next)
       setOrders((prev) => prev.map((o) => (o.id === order.id ? updated : o)))
-      toast.success(`Order #${order.orderNumber} → ${next}`)
+      toast.success(`#${order.orderNumber} → ${STATUS_CONFIG[next]?.label}`)
     } catch {
-      toast.error('Failed to update status')
+      toast.error('อัปเดตสถานะไม่สำเร็จ')
     }
   }
 
@@ -86,33 +114,42 @@ export default function KitchenPage() {
     return acc
   }, {})
 
+  const totalActive = Object.values(counts).reduce((s, v) => s + v, 0)
+
   return (
-    <div className="p-6 min-h-screen">
+    <div className="p-6 min-h-screen bg-gray-50">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ChefHat className="w-6 h-6 text-orange-500" />
-            Kitchen Display
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">Real-time order management</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/30">
+            <ChefHat className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-gray-900">Kitchen Display</h1>
+            <p className="text-xs text-gray-400 mt-0.5">{totalActive} ออร์เดอร์ที่ต้องดำเนินการ</p>
+          </div>
         </div>
         <button
           onClick={fetchOrders}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 bg-white border border-gray-200 rounded-xl px-3 py-2"
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 shadow-sm transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
-          Refresh
+          รีเฟรช
         </button>
       </div>
 
-      {/* Status filter tabs */}
+      {/* Filter tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
         <button
           onClick={() => setFilter('ALL')}
-          className={cn('px-4 py-2 rounded-xl text-sm font-semibold transition-all', filter === 'ALL' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50')}
+          className={cn(
+            'px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border',
+            filter === 'ALL'
+              ? 'bg-gray-900 text-white border-transparent shadow-sm'
+              : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+          )}
         >
-          All Active ({Object.values(counts).reduce((s, v) => s + v, 0)})
+          ทั้งหมด ({totalActive})
         </button>
         {activeStatuses.map((s) => {
           const cfg = STATUS_CONFIG[s]
@@ -121,28 +158,39 @@ export default function KitchenPage() {
               key={s}
               onClick={() => setFilter(s)}
               className={cn(
-                'px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5',
-                filter === s ? `${cfg.badge} text-white` : `bg-white ${cfg.text} border border-gray-200 hover:bg-gray-50`
+                'px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border flex items-center gap-1.5',
+                filter === s
+                  ? `${cfg.badge} text-white border-transparent shadow-sm`
+                  : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
               )}
             >
-              {cfg.label} ({counts[s] ?? 0})
+              <span className={cn('w-1.5 h-1.5 rounded-full', filter === s ? 'bg-white' : cfg.badge)} />
+              {cfg.label}
+              <span className={cn(
+                'text-xs px-1.5 py-0.5 rounded-full font-bold',
+                filter === s ? 'bg-white/20' : 'bg-gray-100 text-gray-600'
+              )}>
+                {counts[s] ?? 0}
+              </span>
             </button>
           )
         })}
       </div>
 
-      {/* Order grid */}
+      {/* Orders grid */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-48 bg-white rounded-2xl animate-pulse border border-gray-100" />
+            <div key={i} className="h-52 bg-white rounded-2xl animate-pulse border border-gray-100" />
           ))}
         </div>
       ) : displayOrders.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <ChefHat className="w-16 h-16 text-gray-200 mb-4" />
-          <h3 className="text-lg font-semibold text-gray-400">No active orders</h3>
-          <p className="text-sm text-gray-300 mt-1">Orders will appear here in real-time</p>
+          <div className="w-20 h-20 bg-gray-100 rounded-3xl flex items-center justify-center mb-4">
+            <ChefHat className="w-10 h-10 text-gray-300" />
+          </div>
+          <h3 className="text-base font-bold text-gray-400">ไม่มีออร์เดอร์</h3>
+          <p className="text-sm text-gray-300 mt-1">ออร์เดอร์ใหม่จะแสดงที่นี่แบบ real-time</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -150,72 +198,80 @@ export default function KitchenPage() {
             .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
             .map((order) => {
               const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.PENDING
-              const next = NEXT_STATUS[order.status]
+              const action = NEXT_ACTION[order.status]
+              const ActionIcon = action?.icon ?? CheckCircle2
               return (
                 <div
                   key={order.id}
                   className={cn(
-                    'bg-white rounded-2xl border-2 shadow-card overflow-hidden transition-all',
-                    cfg.border,
-                    order.status === 'PENDING' && 'ring-2 ring-red-300 ring-offset-2'
+                    'bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all',
+                    cfg.cardBorder,
+                    order.status === 'PENDING' && 'shadow-red-100 shadow-md'
                   )}
                 >
                   {/* Card header */}
-                  <div className={cn('px-4 py-3 flex items-center justify-between', cfg.bg)}>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-extrabold text-gray-900">{order.tableCode}</span>
-                        <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full text-white', cfg.badge)}>
-                          {cfg.label}
-                        </span>
-                        {order.status === 'PENDING' && (
-                          <span className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
-                        )}
+                  <div className={cn('px-4 py-3 flex items-center justify-between', cfg.cardBg)}>
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl font-extrabold text-gray-900 tracking-tight">
+                            โต๊ะ {order.tableCode}
+                          </span>
+                          {order.status === 'PENDING' && (
+                            <span className="flex h-2.5 w-2.5 relative">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">ออร์เดอร์ #{order.orderNumber}</p>
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Order #{order.orderNumber} · {timeAgo(order.createdAt)}
-                      </p>
                     </div>
-                    <Clock className="w-4 h-4 text-gray-400" />
+                    <div className="flex flex-col items-end gap-1">
+                      <ElapsedTimer createdAt={order.createdAt} />
+                      <span className={cn('text-[10px] font-bold text-white px-2 py-0.5 rounded-full', cfg.badge)}>
+                        {cfg.label}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Items */}
-                  <div className="px-4 py-3 space-y-2">
+                  <div className="px-4 py-3 space-y-2.5">
                     {order.items.map((item) => (
-                      <div key={item.id} className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            <span className="text-orange-500 font-bold">{item.quantity}×</span> {item.menuItemName}
-                          </p>
+                      <div key={item.id} className="flex items-start gap-2">
+                        <span className="w-6 h-6 bg-orange-500 text-white text-xs font-extrabold rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                          {item.quantity}
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-gray-900 leading-tight">{item.menuItemName}</p>
                           {item.options.length > 0 && (
-                            <p className="text-xs text-gray-400">{item.options.map((o) => o.name).join(', ')}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{item.options.map((o) => o.name).join(' · ')}</p>
                           )}
-                          {item.notes && <p className="text-xs text-orange-500 mt-0.5">📝 {item.notes}</p>}
+                          {item.notes && (
+                            <p className="text-xs text-orange-600 mt-0.5 font-medium">📝 {item.notes}</p>
+                          )}
                         </div>
                       </div>
                     ))}
                     {order.notes && (
-                      <div className="bg-yellow-50 rounded-lg px-3 py-2 mt-2">
-                        <p className="text-xs text-yellow-700">📋 {order.notes}</p>
+                      <div className="bg-yellow-50 border border-yellow-100 rounded-xl px-3 py-2 mt-1">
+                        <p className="text-xs text-yellow-700 font-medium">📋 {order.notes}</p>
                       </div>
                     )}
                   </div>
 
-                  {/* Action */}
-                  {next && (
+                  {/* Action button */}
+                  {action && (
                     <div className="px-4 pb-4">
                       <button
                         onClick={() => handleStatusChange(order)}
                         className={cn(
-                          'w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95',
-                          order.status === 'PENDING' ? 'bg-red-500 hover:bg-red-600' :
-                          order.status === 'CONFIRMED' ? 'bg-amber-500 hover:bg-amber-600' :
-                          order.status === 'PREPARING' ? 'bg-blue-500 hover:bg-blue-600' :
-                          'bg-green-500 hover:bg-green-600'
+                          'w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95 flex items-center justify-center gap-2',
+                          action.color
                         )}
                       >
-                        <CheckCircle2 className="w-4 h-4 inline mr-1.5" />
-                        {NEXT_ACTION_LABEL[order.status]}
+                        <ActionIcon className="w-4 h-4" />
+                        {action.label}
                       </button>
                     </div>
                   )}

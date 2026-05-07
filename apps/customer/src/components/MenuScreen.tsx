@@ -48,8 +48,11 @@ export default function MenuScreen({ menu, tableId, tableCode, tenant, table }: 
     catBarRef.current?.querySelector(`[data-cat="${catId}"]`)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }
 
-  const cartCount = totalItems()
-  const cartTotal = totalPrice()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  const cartCount = mounted ? totalItems() : 0
+  const cartTotal = mounted ? totalPrice() : 0
 
   return (
     <div className="flex flex-col h-screen bg-[#fafaf9] overflow-hidden">

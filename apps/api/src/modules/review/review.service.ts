@@ -40,7 +40,7 @@ export class ReviewService {
   async getReviews(tenantId: string) {
     return this.prisma.review.findMany({
       where: { tenantId },
-      include: { order: { include: { table: true } } },
+      include: { order: { include: { table: true, items: true } } },
       orderBy: { createdAt: 'desc' },
       take: 100,
     })

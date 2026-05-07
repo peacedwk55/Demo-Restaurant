@@ -40,7 +40,7 @@ export default function OrderStatusPage() {
   useEffect(() => { fetchOrder() }, [fetchOrder])
 
   useOrderSocket({
-    tenantId: order?.tableId ? params.tenant : '',
+    tenantId: order?.tenantId ?? '',
     tableId: order?.tableId ?? '',
     onOrderUpdated: ({ orderId, status }) => {
       if (orderId === params.orderId) {
@@ -188,7 +188,6 @@ export default function OrderStatusPage() {
           <div className="grid grid-cols-3 gap-2">
             {[
               { type: 'ASSISTANCE' as const, icon: '🙋', label: 'ขอความช่วยเหลือ' },
-              { type: 'WATER' as const, icon: '💧', label: 'ขอน้ำ' },
               { type: 'PAYMENT' as const, icon: '💳', label: 'เรียกเก็บเงิน' },
             ].map((action) => (
               <button

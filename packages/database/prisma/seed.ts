@@ -32,7 +32,7 @@ async function main() {
       primaryColor: '#F97316',
       currency: 'THB',
       timezone: 'Asia/Bangkok',
-      promptPayId: '0812345678',
+      promptPayId: '0929622541',
       googleMapsUrl: 'https://maps.google.com/?q=Demo+Bistro',
       plan: 'PRO',
     },
