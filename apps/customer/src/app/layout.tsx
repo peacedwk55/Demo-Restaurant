@@ -1,9 +1,20 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Sarabun } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
+
+const sarabun = Sarabun({
+  subsets: ['thai', 'latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-sarabun',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'TableFlow – Order at your table',
@@ -23,7 +34,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th">
-      <body className={`${inter.variable} antialiased`}>
+      <body className={`${inter.variable} ${sarabun.variable} antialiased`}>
         <div className="max-w-md mx-auto min-h-screen relative">
           {children}
         </div>

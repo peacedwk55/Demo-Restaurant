@@ -3,8 +3,25 @@ import { useAuthStore } from '@/store/auth.store'
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null
+  // 1. Try cookie (most reliable — always set on login, survives full reload)
+  const cookieMatch = document.cookie.match(/(?:^|;\s*)tableflow-token=([^;]+)/)
+  const cookieToken = cookieMatch?.[1]?.trim()
+  if (cookieToken) return cookieToken
+  // 2. Fallback: Zustand in-memory state
+  const memToken = useAuthStore.getState().token
+  if (memToken) return memToken
+  // 3. Last resort: localStorage
+  try {
+    const raw = localStorage.getItem('tableflow-admin-auth')
+    if (raw) return JSON.parse(raw)?.state?.token ?? null
+  } catch {}
+  return null
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = typeof window !== 'undefined' ? useAuthStore.getState().token : null
+  const token = getToken()
   const res = await fetch(`${BASE}/api${path}`, {
     headers: {
       'Content-Type': 'application/json',
@@ -16,6 +33,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (res.status === 401) {
     useAuthStore.getState().logout()
+    document.cookie = 'tableflow-token=; path=/; max-age=0'
     window.location.href = '/login'
     throw new Error('Unauthorized')
   }

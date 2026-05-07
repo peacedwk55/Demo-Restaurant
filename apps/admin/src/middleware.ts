@@ -1,5 +1,24 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export function middleware() {
+const PUBLIC_PATHS = ['/login']
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  const token = request.cookies.get('tableflow-token')?.value
+
+  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
+
+  if (!isPublic && !token) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  if (isPublic && token) {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
+
   return NextResponse.next()
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)'],
 }

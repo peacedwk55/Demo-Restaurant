@@ -29,7 +29,9 @@ export default function LoginPage() {
         : await adminApi.loginPin(tenantSlug, pin)
 
       setAuth(result.token, result.user, result.tenant)
+      document.cookie = `tableflow-token=${result.token}; path=/; max-age=604800; SameSite=Lax`
       toast.success(`ยินดีต้อนรับ, ${result.user.name}!`)
+      // Full reload so middleware sees the cookie on the very first server request
       window.location.href = '/'
     } catch (err: any) {
       toast.error(err.message ?? 'Login failed')
