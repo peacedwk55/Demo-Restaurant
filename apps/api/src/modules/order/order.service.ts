@@ -152,6 +152,13 @@ export class OrderService {
       tenantId,
     })
 
+    // Emit to order-specific room so customer stays updated even after table swap
+    this.events.emitToOrder(orderId, WS_EVENTS.ORDER_UPDATED, {
+      orderId,
+      status: dto.status,
+      tenantId,
+    })
+
     return orderDto
   }
 

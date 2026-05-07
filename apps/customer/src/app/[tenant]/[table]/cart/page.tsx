@@ -15,7 +15,7 @@ export default function CartPage() {
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
 
-  if (items.length === 0) {
+  if (items.length === 0 && !loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center bg-white">
         <div className="w-24 h-24 bg-orange-50 rounded-full flex items-center justify-center mb-5">
@@ -58,9 +58,9 @@ export default function CartPage() {
       clearCart()
       toast.success('ส่งออร์เดอร์เรียบร้อย! 🎉')
       router.push(`/${params.tenant}/${params.table}/order/${order.id}`)
+      // ไม่ setLoading(false) — ให้ loading=true ค้างไว้จนกว่าหน้าจะ navigate ออก
     } catch (err: any) {
       toast.error(err.message ?? 'เกิดข้อผิดพลาด กรุณาลองใหม่')
-    } finally {
       setLoading(false)
     }
   }

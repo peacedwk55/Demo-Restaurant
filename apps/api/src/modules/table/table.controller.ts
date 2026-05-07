@@ -41,4 +41,14 @@ export class TableController {
   clearTable(@CurrentUser() user: JwtPayload, @Param('tableId') tableId: string) {
     return this.tableService.clearTable(user.tenantId, tableId)
   }
+
+  @Patch('admin/tables/:tableIdA/swap/:tableIdB')
+  @Roles('OWNER', 'ADMIN', 'CASHIER')
+  swapTables(
+    @CurrentUser() user: JwtPayload,
+    @Param('tableIdA') tableIdA: string,
+    @Param('tableIdB') tableIdB: string,
+  ) {
+    return this.tableService.swapTables(user.tenantId, tableIdA, tableIdB)
+  }
 }

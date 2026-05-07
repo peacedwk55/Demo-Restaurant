@@ -338,6 +338,8 @@ export const WS_EVENTS = {
   JOIN_RESTAURANT: 'join:restaurant',
   JOIN_TABLE: 'join:table',
   LEAVE_TABLE: 'leave:table',
+  JOIN_ORDER: 'join:order',
+  LEAVE_ORDER: 'leave:order',
 } as const
 
 export type WsEventName = (typeof WS_EVENTS)[keyof typeof WS_EVENTS]

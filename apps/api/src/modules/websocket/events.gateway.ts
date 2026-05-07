@@ -63,6 +63,18 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     client.leave(room)
   }
 
+  @SubscribeMessage(WS_EVENTS.JOIN_ORDER)
+  handleJoinOrder(@ConnectedSocket() client: Socket, @MessageBody() data: { orderId: string }) {
+    const room = `order:${data.orderId}`
+    client.join(room)
+    this.logger.debug(`Socket ${client.id} joined ${room}`)
+  }
+
+  @SubscribeMessage(WS_EVENTS.LEAVE_ORDER)
+  handleLeaveOrder(@ConnectedSocket() client: Socket, @MessageBody() data: { orderId: string }) {
+    client.leave(`order:${data.orderId}`)
+  }
+
   // ─── Server → Client helpers ───
 
   emitToRestaurant(tenantId: string, event: string, payload: unknown) {
@@ -71,5 +83,9 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
 
   emitToTable(tenantId: string, tableId: string, event: string, payload: unknown) {
     this.server.to(`table:${tenantId}:${tableId}`).emit(event, payload)
+  }
+
+  emitToOrder(orderId: string, event: string, payload: unknown) {
+    this.server.to(`order:${orderId}`).emit(event, payload)
   }
 }

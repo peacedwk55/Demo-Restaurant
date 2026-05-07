@@ -5,20 +5,22 @@ import { api } from '@/lib/api'
 import { useOrderSocket } from '@/hooks/useSocket'
 import { OrderDto, OrderStatus } from '@tableflow/types'
 import { formatPrice } from '@/lib/utils'
-import { CheckCircle2, Clock, ChefHat, Truck, Plus, Bell } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
-const STATUS_STEPS: { status: OrderStatus; label: string; sublabel: string; icon: React.ElementType }[] = [
-  { status: 'PENDING', label: 'รับออร์เดอร์แล้ว', sublabel: 'ทีมครัวกำลังรับออร์เดอร์', icon: CheckCircle2 },
-  { status: 'CONFIRMED', label: 'ยืนยันออร์เดอร์', sublabel: 'ยืนยันแล้ว เตรียมทำอาหาร', icon: CheckCircle2 },
-  { status: 'PREPARING', label: 'กำลังเตรียมอาหาร', sublabel: 'ครัวกำลังทำอาหารให้คุณ', icon: ChefHat },
-  { status: 'READY', label: 'อาหารพร้อมแล้ว', sublabel: 'พนักงานกำลังนำอาหารมาให้', icon: Truck },
-  { status: 'SERVED', label: 'เสิร์ฟแล้ว', sublabel: 'รับประทานอาหารให้อร่อยนะคะ 🙏', icon: CheckCircle2 },
+const DOTS = [
+  { label: 'ส่งออร์เดอร์แล้ว', sublabel: 'รอครัวรับออร์เดอร์', emoji: '📋', lit: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'SERVED'] },
+  { label: 'ครัวรับแล้ว',      sublabel: 'กำลังเตรียมอาหาร',  emoji: '👨‍🍳', lit: ['CONFIRMED', 'PREPARING', 'READY', 'SERVED'] },
+  { label: 'พร้อมเสิร์ฟ',     sublabel: 'อาหารมาแล้ว! 🎉',   emoji: '🍽️', lit: ['READY', 'SERVED'] },
 ]
 
-const STATUS_ORDER: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'SERVED']
+const getCurrentDotIdx = (status: OrderStatus) => {
+  if (['READY', 'SERVED'].includes(status)) return 2
+  if (['CONFIRMED', 'PREPARING'].includes(status)) return 1
+  return 0
+}
 
 export default function OrderStatusPage() {
   const params = useParams<{ tenant: string; table: string; orderId: string }>()
@@ -40,6 +42,7 @@ export default function OrderStatusPage() {
   useEffect(() => { fetchOrder() }, [fetchOrder])
 
   useOrderSocket({
+    orderId: params.orderId,
     tenantId: order?.tenantId ?? '',
     tableId: order?.tableId ?? '',
     onOrderUpdated: ({ orderId, status }) => {
@@ -52,7 +55,8 @@ export default function OrderStatusPage() {
     },
     onPaymentConfirmed: ({ orderId }) => {
       if (orderId === params.orderId) {
-        router.push(`/${params.tenant}/${params.table}/review/${params.orderId}`)
+        toast.success('ชำระเงินเรียบร้อย! ขอบคุณที่ใช้บริการ 🙏', { duration: 4000 })
+        setTimeout(() => router.push(`/${params.tenant}/${params.table}`), 2000)
       }
     },
   })
@@ -80,63 +84,61 @@ export default function OrderStatusPage() {
 
   if (!order) return null
 
-  const currentStepIdx = STATUS_ORDER.indexOf(order.status)
-  const currentStep = STATUS_STEPS.find((s) => s.status === order.status) ?? STATUS_STEPS[0]
+  const currentDotIdx = getCurrentDotIdx(order.status)
+  const currentDot = DOTS[currentDotIdx]
 
   return (
     <div className="min-h-screen bg-stone-50">
       {/* Header */}
-      <div className="bg-orange-500 px-6 pt-10 pb-6 text-white">
+      <div className="bg-orange-500 px-6 pt-10 pb-8 text-white">
         <p className="text-orange-200 text-sm">ออร์เดอร์ #{order.orderNumber}</p>
-        <h1 className="text-2xl font-bold mt-1">{currentStep.label}</h1>
-        <p className="text-orange-100 text-sm mt-1">{currentStep.sublabel}</p>
+        <h1 className="text-2xl font-bold mt-1">{currentDot.label}</h1>
+        <p className="text-orange-100 text-sm mt-1 animate-pulse">{currentDot.sublabel}</p>
       </div>
 
-      {/* Progress stepper */}
-      <div className="mx-4 -mt-3 bg-white rounded-2xl p-5 shadow-card border border-stone-100">
-        <div className="relative">
-          {/* Track */}
-          <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-stone-200" />
-          <div
-            className="absolute left-4 top-4 w-0.5 bg-orange-500 transition-all duration-700"
-            style={{ height: `${(currentStepIdx / (STATUS_STEPS.length - 1)) * 100}%` }}
-          />
-
-          <div className="space-y-6">
-            {STATUS_STEPS.map((step, i) => {
-              const isDone = i < currentStepIdx
-              const isCurrent = i === currentStepIdx
-              const Icon = step.icon
-              return (
-                <div key={step.status} className="flex items-center gap-4 relative">
-                  <div
-                    className={cn(
-                      'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 relative z-10 transition-all',
-                      isDone && 'bg-orange-500',
-                      isCurrent && 'bg-orange-500 ring-4 ring-orange-100',
-                      !isDone && !isCurrent && 'bg-white border-2 border-stone-200'
-                    )}
-                  >
-                    {isDone ? (
-                      <CheckCircle2 className="w-4 h-4 text-white fill-current" />
-                    ) : isCurrent ? (
-                      <Icon className="w-4 h-4 text-white" />
-                    ) : (
-                      <div className="w-2 h-2 rounded-full bg-stone-200" />
-                    )}
+      {/* 3-dot progress */}
+      <div className="mx-4 -mt-5 bg-white rounded-3xl p-6 shadow-card border border-stone-100">
+        <div className="flex items-start justify-between">
+          {DOTS.map((dot, i) => {
+            const isLit = (dot.lit as string[]).includes(order.status)
+            const isCurrent = i === currentDotIdx
+            const isLast = i === DOTS.length - 1
+            return (
+              <div key={i} className="flex items-center flex-1">
+                {/* Dot + label */}
+                <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                  <div className={cn(
+                    'w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all duration-500',
+                    isLit
+                      ? 'bg-orange-500 shadow-lg shadow-orange-300'
+                      : 'bg-stone-100',
+                    isCurrent && 'ring-4 ring-orange-100 scale-110',
+                  )}>
+                    <span className={cn('transition-all', isLit ? 'grayscale-0' : 'grayscale opacity-40')}>
+                      {dot.emoji}
+                    </span>
                   </div>
-                  <div>
-                    <p className={cn('text-sm font-semibold', isDone || isCurrent ? 'text-stone-900' : 'text-stone-400')}>
-                      {step.label}
-                    </p>
-                    {isCurrent && (
-                      <p className="text-xs text-orange-500 font-medium animate-pulse">{step.sublabel}</p>
-                    )}
-                  </div>
+                  <p className={cn(
+                    'text-xs font-bold text-center leading-tight max-w-[72px]',
+                    isLit ? 'text-stone-900' : 'text-stone-300',
+                  )}>
+                    {dot.label}
+                  </p>
                 </div>
-              )
-            })}
-          </div>
+                {/* Connecting line (not after last dot) */}
+                {!isLast && (
+                  <div className="flex-1 mx-2 mb-6">
+                    <div className="h-0.5 bg-stone-200 relative overflow-hidden rounded-full">
+                      <div
+                        className="absolute inset-y-0 left-0 bg-orange-400 transition-all duration-700"
+                        style={{ width: (DOTS[i + 1].lit as string[]).includes(order.status) ? '100%' : '0%' }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
 

@@ -19,14 +19,12 @@ const STATUS_CONFIG = {
 }
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
-  PENDING: 'CONFIRMED', CONFIRMED: 'PREPARING', PREPARING: 'READY', READY: 'SERVED',
+  PENDING: 'CONFIRMED', CONFIRMED: 'READY',
 }
 
 const NEXT_ACTION: Partial<Record<OrderStatus, { label: string; icon: React.ElementType; color: string }>> = {
-  PENDING:   { label: 'รับออร์เดอร์',   icon: CheckCircle2, color: 'bg-red-500 hover:bg-red-600' },
-  CONFIRMED: { label: 'เริ่มทำอาหาร',  icon: Flame,        color: 'bg-amber-500 hover:bg-amber-600' },
-  PREPARING: { label: 'พร้อมเสิร์ฟ',   icon: Zap,          color: 'bg-blue-500 hover:bg-blue-600' },
-  READY:     { label: 'เสิร์ฟแล้ว',    icon: CheckCircle2, color: 'bg-emerald-500 hover:bg-emerald-600' },
+  PENDING:   { label: 'รับออร์เดอร์', icon: CheckCircle2, color: 'bg-red-500 hover:bg-red-600' },
+  CONFIRMED: { label: 'พร้อมเสิร์ฟ', icon: Zap,          color: 'bg-emerald-500 hover:bg-emerald-600' },
 }
 
 function ElapsedTimer({ createdAt }: { createdAt: string }) {
@@ -90,6 +88,9 @@ export default function KitchenPage() {
         return updated
       })
     },
+    onPaymentConfirmed: ({ orderId }) => {
+      setOrders((prev) => prev.filter((o) => o.id !== orderId))
+    },
   })
 
   const handleStatusChange = async (order: OrderDto) => {
@@ -104,7 +105,7 @@ export default function KitchenPage() {
     }
   }
 
-  const activeStatuses: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY']
+  const activeStatuses: OrderStatus[] = ['PENDING', 'CONFIRMED', 'READY']
   const displayOrders = filter === 'ALL'
     ? orders.filter((o) => activeStatuses.includes(o.status))
     : orders.filter((o) => o.status === filter)

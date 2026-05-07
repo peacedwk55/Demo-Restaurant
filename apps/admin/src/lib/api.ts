@@ -77,6 +77,9 @@ export const adminApi = {
   clearTable: (tableId: string) =>
     request(`/admin/tables/${tableId}/clear`, { method: 'PATCH' }),
 
+  swapTables: (tableIdA: string, tableIdB: string) =>
+    request(`/admin/tables/${tableIdA}/swap/${tableIdB}`, { method: 'PATCH' }),
+
   confirmPayment: (orderId: string, method: string, transactionRef?: string) =>
     request(`/admin/payments/${orderId}/confirm`, { method: 'POST', body: JSON.stringify({ method, transactionRef }) }),
 

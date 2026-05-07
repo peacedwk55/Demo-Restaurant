@@ -102,9 +102,58 @@ export class TableService {
     const table = await this.prisma.table.findUnique({ where: { id: tableId } })
     if (!table || table.tenantId !== tenantId) throw new NotFoundException('Table not found')
 
+    const activeOrders = await this.prisma.order.findMany({
+      where: { tableId, status: { notIn: ['SERVED', 'CANCELLED'] } },
+      select: { id: true },
+    })
+
+    if (activeOrders.length > 0) {
+      await this.prisma.order.updateMany({
+        where: { id: { in: activeOrders.map((o) => o.id) } },
+        data: { status: 'CANCELLED' },
+      })
+      for (const order of activeOrders) {
+        this.events.emitToRestaurant(tenantId, WS_EVENTS.ORDER_UPDATED, {
+          orderId: order.id,
+          status: 'CANCELLED',
+          tenantId,
+        })
+      }
+    }
+
     return this.prisma.table.update({
       where: { id: tableId },
       data: { status: 'AVAILABLE' },
     })
+  }
+
+  async swapTables(tenantId: string, tableIdA: string, tableIdB: string) {
+    const [tableA, tableB] = await Promise.all([
+      this.prisma.table.findUnique({ where: { id: tableIdA } }),
+      this.prisma.table.findUnique({ where: { id: tableIdB } }),
+    ])
+    if (!tableA || tableA.tenantId !== tenantId) throw new NotFoundException('Table A not found')
+    if (!tableB || tableB.tenantId !== tenantId) throw new NotFoundException('Table B not found')
+
+    // Collect order IDs first so we can swap without a 3-way conflict
+    const [ordersA, ordersB] = await Promise.all([
+      this.prisma.order.findMany({ where: { tableId: tableIdA, status: { notIn: ['SERVED', 'CANCELLED'] } }, select: { id: true } }),
+      this.prisma.order.findMany({ where: { tableId: tableIdB, status: { notIn: ['SERVED', 'CANCELLED'] } }, select: { id: true } }),
+    ])
+
+    const idsA = ordersA.map((o) => o.id)
+    const idsB = ordersB.map((o) => o.id)
+
+    await this.prisma.$transaction([
+      ...(idsA.length ? [this.prisma.order.updateMany({ where: { id: { in: idsA } }, data: { tableId: tableIdB } })] : []),
+      ...(idsB.length ? [this.prisma.order.updateMany({ where: { id: { in: idsB } }, data: { tableId: tableIdA } })] : []),
+      this.prisma.table.update({ where: { id: tableIdA }, data: { status: tableB.status } }),
+      this.prisma.table.update({ where: { id: tableIdB }, data: { status: tableA.status } }),
+    ])
+
+    this.events.emitToRestaurant(tenantId, WS_EVENTS.TABLE_UPDATED, { tableId: tableIdA, code: tableA.code, status: tableB.status, tenantId })
+    this.events.emitToRestaurant(tenantId, WS_EVENTS.TABLE_UPDATED, { tableId: tableIdB, code: tableB.code, status: tableA.status, tenantId })
+
+    return { success: true }
   }
 }

@@ -5,7 +5,9 @@ import { useAdminSocket } from '@/hooks/useSocket'
 import { TableStatus, OrderDto } from '@tableflow/types'
 import { cn } from '@/lib/utils'
 import { formatPrice, timeAgo } from '@/lib/utils'
-import { CreditCard, X, CheckCircle2, Bell, AlertCircle } from 'lucide-react'
+import { CreditCard, X, CheckCircle2, Bell, AlertCircle, UtensilsCrossed, Banknote, QrCode } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useAuthStore } from '@/store/auth.store'
 import toast from 'react-hot-toast'
 import { sounds } from '@/lib/sound'
 
@@ -26,12 +28,15 @@ const STATUS_ORDER_COLOR: Record<string, string> = {
 }
 
 export default function CashierPage() {
+  const router = useRouter()
+  const { tenant } = useAuthStore()
   const [tables, setTables] = useState<any[]>([])
   const [orders, setOrders] = useState<OrderDto[]>([])
   const [selectedTable, setSelectedTable] = useState<any | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<OrderDto | null>(null)
   const [staffCalls, setStaffCalls] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [payMethod, setPayMethod] = useState<'CASH' | 'PROMPTPAY'>('CASH')
 
   const fetchAll = useCallback(async () => {
     const [t, o, c] = await Promise.all([adminApi.getTables(), adminApi.getOrders(), adminApi.getPendingCalls()])
@@ -68,8 +73,9 @@ export default function CashierPage() {
 
   const handleConfirmPayment = async (orderId: string) => {
     try {
-      await adminApi.confirmPayment(orderId, 'CASH')
+      await adminApi.confirmPayment(orderId, payMethod)
       setSelectedTable(null); setSelectedOrder(null)
+      setPayMethod('CASH')
       await fetchAll()
       toast.success('Payment confirmed!')
     } catch { toast.error('Failed to confirm payment') }
@@ -115,13 +121,22 @@ export default function CashierPage() {
           </div>
         </div>
         {/* Legend */}
-        <div className="hidden md:flex items-center gap-4">
-          {Object.entries(TABLE_STATUS_CONFIG).map(([k, v]) => (
-            <div key={k} className="flex items-center gap-1.5">
-              <div className={cn('w-2 h-2 rounded-full', v.dot)} />
-              <span className="text-xs text-gray-500">{v.label}</span>
-            </div>
-          ))}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push(`/cashier/order`)}
+            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm shadow-orange-500/30"
+          >
+            <UtensilsCrossed className="w-4 h-4" />
+            สั่งอาหารแทนลูกค้า
+          </button>
+          <div className="hidden md:flex items-center gap-4">
+            {Object.entries(TABLE_STATUS_CONFIG).map(([k, v]) => (
+              <div key={k} className="flex items-center gap-1.5">
+                <div className={cn('w-2 h-2 rounded-full', v.dot)} />
+                <span className="text-xs text-gray-500">{v.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -296,19 +311,36 @@ export default function CashierPage() {
             {/* Actions */}
             <div className="px-5 py-4 border-t border-gray-100 space-y-2.5">
               {selectedOrder && (
-                <button
-                  onClick={() => handleConfirmPayment(selectedOrder.id)}
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm shadow-emerald-500/30"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Confirm Payment · {formatPrice(selectedOrder.totalAmount)}
-                </button>
+                <>
+                  {/* Payment method selector */}
+                  <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+                    <button
+                      onClick={() => setPayMethod('CASH')}
+                      className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all', payMethod === 'CASH' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500')}
+                    >
+                      <Banknote className="w-3.5 h-3.5" /> เงินสด
+                    </button>
+                    <button
+                      onClick={() => setPayMethod('PROMPTPAY')}
+                      className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all', payMethod === 'PROMPTPAY' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500')}
+                    >
+                      <QrCode className="w-3.5 h-3.5" /> PromptPay
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => handleConfirmPayment(selectedOrder.id)}
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm shadow-emerald-500/30"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    ยืนยันชำระเงิน · {formatPrice(selectedOrder.totalAmount)}
+                  </button>
+                </>
               )}
               <button
                 onClick={() => handleClearTable(selectedTable.id)}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-2xl font-semibold text-sm transition-all"
               >
-                Clear Table
+                เคลียโต๊ะ
               </button>
             </div>
           </div>
