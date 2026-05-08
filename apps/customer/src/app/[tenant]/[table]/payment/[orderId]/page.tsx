@@ -6,6 +6,7 @@ import { useOrderSocket } from '@/hooks/useSocket'
 import { PaymentDto, OrderStatus } from '@tableflow/types'
 import { formatPrice } from '@/lib/utils'
 import { ArrowLeft, CheckCircle2, RefreshCw, Banknote, QrCode } from 'lucide-react'
+import { useCartStore } from '@/store/cart.store'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -14,6 +15,7 @@ type PaymentTab = 'PROMPTPAY' | 'CASH'
 export default function PaymentPage() {
   const params = useParams<{ tenant: string; table: string; orderId: string }>()
   const router = useRouter()
+  const { setActiveOrder } = useCartStore()
   const [payment, setPayment] = useState<PaymentDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<PaymentTab>('PROMPTPAY')
@@ -51,6 +53,7 @@ export default function PaymentPage() {
     onOrderUpdated: () => {},
     onPaymentConfirmed: ({ orderId }) => {
       if (orderId === params.orderId) {
+        setActiveOrder(null)
         setPayment((prev) => prev ? { ...prev, status: 'CONFIRMED' } : prev)
       }
     },

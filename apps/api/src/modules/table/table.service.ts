@@ -56,6 +56,12 @@ export class TableService {
     })
     if (!table || !table.isActive) throw new NotFoundException('Table not found')
 
+    const activeOrder = await this.prisma.order.findFirst({
+      where: { tableId: table.id, status: { notIn: ['SERVED', 'CANCELLED'] } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    })
+
     return {
       id: table.id,
       code: table.code,
@@ -64,6 +70,7 @@ export class TableService {
       zone: table.zone,
       status: table.status,
       qrCodeUrl: table.qrCodeUrl,
+      activeOrderId: activeOrder?.id ?? null,
     }
   }
 

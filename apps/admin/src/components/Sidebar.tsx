@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@/store/auth.store'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, ChefHat, CreditCard, UtensilsCrossed, Grid3X3, Users, BarChart3, LogOut, Utensils, MessageSquare } from 'lucide-react'
+import { LayoutDashboard, ChefHat, CreditCard, UtensilsCrossed, Grid3X3, Users, BarChart3, LogOut, Utensils } from 'lucide-react'
 import { unlockAudio } from '@/lib/sound'
 
 const NAV_ITEMS = [
@@ -15,7 +15,6 @@ const NAV_ITEMS = [
   { href: '/tables',    label: 'Tables',    icon: Grid3X3,         roles: ['OWNER', 'ADMIN', 'CASHIER'] },
   { href: '/staff',     label: 'Staff',     icon: Users,           roles: ['OWNER', 'ADMIN'] },
   { href: '/analytics', label: 'Analytics', icon: BarChart3,       roles: ['OWNER', 'ADMIN'] },
-  { href: '/reviews',   label: 'Reviews',   icon: MessageSquare,   roles: ['OWNER', 'ADMIN'] },
 ]
 
 export default function Sidebar() {

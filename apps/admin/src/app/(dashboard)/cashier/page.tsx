@@ -11,6 +11,8 @@ import { useAuthStore } from '@/store/auth.store'
 import toast from 'react-hot-toast'
 import { sounds } from '@/lib/sound'
 
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+
 const TABLE_STATUS_CONFIG: Record<TableStatus, { label: string; cardBg: string; cardBorder: string; dot: string; textColor: string }> = {
   AVAILABLE:       { label: 'ว่าง',           cardBg: 'bg-white',      cardBorder: 'border-gray-200',   dot: 'bg-emerald-400', textColor: 'text-emerald-600' },
   OCCUPIED:        { label: 'มีลูกค้า',       cardBg: 'bg-orange-50',  cardBorder: 'border-orange-200', dot: 'bg-orange-400',  textColor: 'text-orange-600'  },
@@ -37,6 +39,8 @@ export default function CashierPage() {
   const [staffCalls, setStaffCalls] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [payMethod, setPayMethod] = useState<'CASH' | 'PROMPTPAY'>('CASH')
+  const [qrModal, setQrModal] = useState<{ qrImage: string; amount: number; orderId: string } | null>(null)
+  const [confirming, setConfirming] = useState(false)
 
   const fetchAll = useCallback(async () => {
     const [t, o, c] = await Promise.all([adminApi.getTables(), adminApi.getOrders(), adminApi.getPendingCalls()])
@@ -68,17 +72,87 @@ export default function CashierPage() {
         if (order) sounds.paymentConfirmed(order.tableCode, Number(order.totalAmount))
         return prev
       })
+      setQrModal((prev: { qrImage: string; amount: number; orderId: string } | null) => {
+        if (prev?.orderId === orderId) {
+          setSelectedTable(null); setSelectedOrder(null); setPayMethod('CASH')
+          fetchAll()
+          toast.success('ชำระเงินสำเร็จ!')
+          return null
+        }
+        return prev
+      })
     },
   })
 
   const handleConfirmPayment = async (orderId: string) => {
+    setConfirming(true)
     try {
-      await adminApi.confirmPayment(orderId, payMethod)
+      // สร้าง / ดึง payment record
+      const payRes = await fetch(`${BASE}/api/public/${tenant?.slug}/payments/${orderId}`)
+      if (!payRes.ok) throw new Error('โหลดข้อมูลการชำระเงินไม่ได้')
+      const payData = await payRes.json()
+
+      // ถ้า confirm ไปแล้ว (เช่น auto-verify จาก webhook) ให้ refresh แล้วปิด
+      if (payData.status === 'CONFIRMED') {
+        setSelectedTable(null); setSelectedOrder(null); setPayMethod('CASH')
+        await fetchAll()
+        toast.success('ชำระเงินเรียบร้อยแล้ว')
+        return
+      }
+
+      if (payMethod === 'PROMPTPAY') {
+        setQrModal({ qrImage: payData.promptPayQrUrl, amount: Number(payData.amount), orderId })
+        setConfirming(false)
+        return
+      }
+
+      await adminApi.confirmPayment(orderId, 'CASH')
       setSelectedTable(null); setSelectedOrder(null)
       setPayMethod('CASH')
       await fetchAll()
-      toast.success('Payment confirmed!')
-    } catch { toast.error('Failed to confirm payment') }
+      toast.success('ยืนยันชำระเงินแล้ว!')
+    } catch (err: any) { toast.error(err?.message ?? 'เกิดข้อผิดพลาด') }
+    finally { setConfirming(false) }
+  }
+
+  // Auto-verify: poll payment status every 3s while QR modal is open
+  useEffect(() => {
+    if (!qrModal || !tenant) return
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${BASE}/api/public/${tenant.slug}/payments/${qrModal.orderId}`)
+        const data = await res.json()
+        if (data.status === 'CONFIRMED') {
+          clearInterval(interval)
+          setQrModal(null); setSelectedTable(null); setSelectedOrder(null); setPayMethod('CASH')
+          await fetchAll()
+          toast.success('ชำระเงินสำเร็จ!')
+        }
+      } catch {}
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [qrModal?.orderId, tenant])
+
+  const handleConfirmQr = async () => {
+    if (!qrModal) return
+    setConfirming(true)
+    try {
+      await adminApi.confirmPayment(qrModal.orderId, 'PROMPTPAY')
+      setQrModal(null); setSelectedTable(null); setSelectedOrder(null)
+      setPayMethod('CASH')
+      await fetchAll()
+      toast.success('ยืนยันชำระเงินแล้ว!')
+    } catch (err: any) {
+      if (err?.message?.includes('already confirmed')) {
+        // webhook confirm ไปแล้ว ให้ปิด modal และ refresh
+        setQrModal(null); setSelectedTable(null); setSelectedOrder(null)
+        await fetchAll()
+        toast.success('ชำระเงินเรียบร้อยแล้ว')
+      } else {
+        toast.error(err?.message ?? 'เกิดข้อผิดพลาด')
+      }
+    }
+    finally { setConfirming(false) }
   }
 
   const handleClearTable = async (tableId: string) => {
@@ -86,8 +160,8 @@ export default function CashierPage() {
       await adminApi.clearTable(tableId)
       setSelectedTable(null)
       setTables((prev) => prev.map((t) => t.id === tableId ? { ...t, status: 'AVAILABLE' } : t))
-      toast.success('Table cleared')
-    } catch { toast.error('Failed to clear table') }
+      toast.success('เคลียโต๊ะแล้ว')
+    } catch (err: any) { toast.error(err?.message ?? 'เคลียโต๊ะไม่ได้') }
   }
 
   const handleResolveCall = async (callId: string) => {
@@ -145,7 +219,7 @@ export default function CashierPage() {
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-amber-100">
             <Bell className="w-4 h-4 text-amber-600" />
-            <span className="text-sm font-bold text-amber-800">Staff Calls ({staffCalls.length})</span>
+            <span className="text-sm font-bold text-amber-800">เรียกพนักงาน {staffCalls.length} รายการ</span>
           </div>
           <div className="p-3 space-y-2">
             {staffCalls.map((call, i) => (
@@ -153,9 +227,9 @@ export default function CashierPage() {
                 <div className="flex items-center gap-3">
                   <span className="text-xl">{call.type === 'PAYMENT' ? '💳' : call.type === 'WATER' ? '💧' : '🙋'}</span>
                   <div>
-                    <p className="text-sm font-bold text-gray-800">Table {call.tableCode}</p>
+                    <p className="text-sm font-bold text-gray-800">โต๊ะ {call.tableCode}</p>
                     <p className="text-xs text-gray-500">
-                      {call.type === 'PAYMENT' ? 'Requesting bill' : call.type === 'WATER' ? 'Requesting water' : 'Needs assistance'}
+                      {call.type === 'PAYMENT' ? 'ขอชำระเงิน' : 'ขอความช่วยเหลือ'}
                     </p>
                   </div>
                 </div>
@@ -329,10 +403,11 @@ export default function CashierPage() {
                   </div>
                   <button
                     onClick={() => handleConfirmPayment(selectedOrder.id)}
-                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3.5 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm shadow-emerald-500/30"
+                    disabled={confirming}
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white py-3.5 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm shadow-emerald-500/30"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    ยืนยันชำระเงิน · {formatPrice(selectedOrder.totalAmount)}
+                    {confirming ? 'กำลังดำเนินการ...' : `ยืนยันชำระเงิน · ${formatPrice(selectedOrder.totalAmount)}`}
                   </button>
                 </>
               )}
@@ -341,6 +416,49 @@ export default function CashierPage() {
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-2xl font-semibold text-sm transition-all"
               >
                 เคลียโต๊ะ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Payment Modal */}
+      {qrModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setQrModal(null)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-extrabold text-gray-900">ชำระผ่าน PromptPay</h2>
+                <p className="text-xs text-gray-400 mt-0.5">ให้ลูกค้าสแกน QR Code</p>
+              </div>
+              <button onClick={() => setQrModal(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                <X className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+            <div className="px-6 py-5 flex flex-col items-center gap-4">
+              <div className="bg-orange-500 rounded-2xl px-6 py-3 text-center">
+                <p className="text-orange-100 text-xs mb-0.5">ยอดที่ต้องชำระ</p>
+                <p className="text-2xl font-extrabold text-white">{formatPrice(qrModal.amount)}</p>
+              </div>
+              {qrModal.qrImage && (
+                <img src={qrModal.qrImage} alt="PromptPay QR" className="w-56 h-56 rounded-2xl border border-gray-100" />
+              )}
+              <p className="text-xs text-gray-400 text-center">หลังลูกค้าสแกนจ่ายแล้ว ระบบจะยืนยันอัตโนมัติ</p>
+              <div className="w-full bg-gray-50 rounded-xl px-3 py-2 flex items-center gap-2">
+                <span className="text-[10px] text-gray-400 flex-shrink-0">Order ID:</span>
+                <span className="text-[10px] font-mono text-gray-600 truncate flex-1">{qrModal.orderId}</span>
+                <button onClick={() => { navigator.clipboard.writeText(qrModal.orderId); toast.success('Copied!') }} className="text-[10px] text-orange-500 font-bold flex-shrink-0">Copy</button>
+              </div>
+            </div>
+            <div className="px-6 pb-6">
+              <button
+                onClick={handleConfirmQr}
+                disabled={confirming}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                {confirming ? 'กำลังยืนยัน...' : 'ยืนยันรับชำระเงินแล้ว'}
               </button>
             </div>
           </div>

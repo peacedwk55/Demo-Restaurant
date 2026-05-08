@@ -11,7 +11,7 @@ import toast from 'react-hot-toast'
 export default function CartPage() {
   const params = useParams<{ tenant: string; table: string }>()
   const router = useRouter()
-  const { items, removeItem, updateQuantity, clearCart, totalPrice, tableId, sessionCode, tenantSlug } = useCartStore()
+  const { items, removeItem, updateQuantity, clearCart, setActiveOrder, totalPrice, tableId, sessionCode, tenantSlug } = useCartStore()
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -55,6 +55,7 @@ export default function CartPage() {
           options: item.selectedOptions.map(o => ({ optionId: o.optionId, name: o.name, priceAdjust: o.priceAdjust })),
         })),
       })
+      setActiveOrder(order.id)
       clearCart()
       toast.success('ส่งออร์เดอร์เรียบร้อย! 🎉')
       router.push(`/${params.tenant}/${params.table}/order/${order.id}`)

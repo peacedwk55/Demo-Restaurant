@@ -116,6 +116,7 @@ export interface TableDto {
   zone: string | null
   status: TableStatus
   qrCodeUrl: string | null
+  activeOrderId: string | null
 }
 
 // ─────────────────────────────────────────────

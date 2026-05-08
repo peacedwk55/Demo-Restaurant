@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth.store'
 import { adminApi } from '@/lib/api'
 import { formatPrice } from '@/lib/utils'
-import { ArrowLeft, Plus, Minus, ShoppingBag, Trash2, ChevronDown, CheckCircle2, Banknote, QrCode } from 'lucide-react'
+import { ArrowLeft, Plus, Minus, ShoppingBag, Trash2, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -17,8 +17,6 @@ interface CartItem {
   quantity: number
 }
 
-type Step = 'menu' | 'payment'
-
 export default function CashierOrderPage() {
   const router = useRouter()
   const { tenant } = useAuthStore()
@@ -27,11 +25,8 @@ export default function CashierOrderPage() {
   const [menu, setMenu] = useState<any>(null)
   const [activeCategory, setActiveCategory] = useState('')
   const [cart, setCart] = useState<CartItem[]>([])
-  const [step, setStep] = useState<Step>('menu')
-  const [placedOrderId, setPlacedOrderId] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'PROMPTPAY'>('CASH')
+  const [notes, setNotes] = useState('')
   const [placing, setPlacing] = useState(false)
-  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
     adminApi.getTables().then((t: any[]) => {
@@ -82,109 +77,18 @@ export default function CashierOrderPage() {
         body: JSON.stringify({
           tableId: selectedTableId,
           sessionCode,
+          notes: notes.trim() || undefined,
           items: cart.map((c) => ({ menuItemId: c.menuItemId, quantity: c.quantity, unitPrice: c.unitPrice, options: [] })),
         }),
       })
       if (!res.ok) throw new Error()
-      const order = await res.json()
-      setPlacedOrderId(order.id)
-      setStep('payment')
+      toast.success(`ส่งออร์เดอร์เข้าครัวแล้ว! โต๊ะ ${selectedTable?.code}`)
+      router.push('/cashier')
     } catch {
       toast.error('สั่งอาหารไม่สำเร็จ')
     } finally {
       setPlacing(false)
     }
-  }
-
-  const handleConfirmPayment = async () => {
-    if (!placedOrderId) return
-    setConfirming(true)
-    try {
-      await adminApi.confirmPayment(placedOrderId, paymentMethod)
-      toast.success(`ชำระเงินสำเร็จ! โต๊ะ ${selectedTable?.code} — ${formatPrice(total)}`)
-      router.push('/cashier')
-    } catch {
-      toast.error('ยืนยันการชำระเงินไม่สำเร็จ')
-    } finally {
-      setConfirming(false)
-    }
-  }
-
-  // ── Payment step ─────────────────────────────────────
-  if (step === 'payment') {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4">
-          <button onClick={() => setStep('menu')} className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center">
-            <ArrowLeft className="w-4 h-4 text-gray-700" />
-          </button>
-          <div>
-            <h1 className="text-base font-extrabold text-gray-900">ชำระเงิน</h1>
-            <p className="text-xs text-gray-400">โต๊ะ {selectedTable?.code}</p>
-          </div>
-        </div>
-
-        <div className="flex-1 px-6 py-6 space-y-4">
-          {/* Amount */}
-          <div className="bg-orange-500 rounded-3xl px-8 py-6 text-center shadow-sm shadow-orange-500/30">
-            <p className="text-orange-100 text-sm mb-1">ยอดที่ต้องชำระ</p>
-            <p className="text-4xl font-extrabold text-white">{formatPrice(total)}</p>
-            <p className="text-orange-200 text-xs mt-2">รวม VAT 7% แล้ว</p>
-          </div>
-
-          {/* Order summary */}
-          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-card">
-            <p className="text-sm font-bold text-gray-700 mb-3">รายการอาหาร</p>
-            <div className="space-y-1.5">
-              {cart.map((c) => (
-                <div key={c.menuItemId} className="flex justify-between text-sm">
-                  <span className="text-gray-600">{c.menuItemName} ×{c.quantity}</span>
-                  <span className="font-semibold text-gray-800">{formatPrice(c.unitPrice * c.quantity)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Payment method */}
-          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-card">
-            <p className="text-sm font-bold text-gray-700 mb-3">วิธีชำระเงิน</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setPaymentMethod('CASH')}
-                className={cn(
-                  'flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all',
-                  paymentMethod === 'CASH' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 bg-white hover:bg-gray-50'
-                )}
-              >
-                <Banknote className={cn('w-7 h-7', paymentMethod === 'CASH' ? 'text-orange-500' : 'text-gray-400')} />
-                <span className={cn('text-sm font-bold', paymentMethod === 'CASH' ? 'text-orange-600' : 'text-gray-600')}>เงินสด</span>
-              </button>
-              <button
-                onClick={() => setPaymentMethod('PROMPTPAY')}
-                className={cn(
-                  'flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all',
-                  paymentMethod === 'PROMPTPAY' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 bg-white hover:bg-gray-50'
-                )}
-              >
-                <QrCode className={cn('w-7 h-7', paymentMethod === 'PROMPTPAY' ? 'text-orange-500' : 'text-gray-400')} />
-                <span className={cn('text-sm font-bold', paymentMethod === 'PROMPTPAY' ? 'text-orange-600' : 'text-gray-600')}>PromptPay</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 pb-8 pt-3 bg-white border-t border-gray-100">
-          <button
-            onClick={handleConfirmPayment}
-            disabled={confirming}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white py-4 rounded-2xl font-extrabold text-base transition-all flex items-center justify-center gap-2 shadow-sm shadow-emerald-500/25"
-          >
-            <CheckCircle2 className="w-5 h-5" />
-            {confirming ? 'กำลังยืนยัน...' : `ยืนยันรับชำระเงิน · ${formatPrice(total)}`}
-          </button>
-        </div>
-      </div>
-    )
   }
 
   // ── Menu step ─────────────────────────────────────────
@@ -284,7 +188,14 @@ export default function CashierOrderPage() {
 
       {/* Bottom CTA */}
       {cart.length > 0 && (
-        <div className="bg-white border-t border-gray-100 px-6 py-4 sticky bottom-0">
+        <div className="bg-white border-t border-gray-100 px-6 py-4 sticky bottom-0 space-y-3">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="หมายเหตุ (เช่น ไม่ใส่ผัก, แพ้ถั่ว...)"
+            rows={2}
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 placeholder-gray-400 outline-none focus:border-orange-400 resize-none"
+          />
           <button
             onClick={handlePlaceOrder}
             disabled={placing}

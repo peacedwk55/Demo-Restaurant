@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TableFlow — วิธีใช้งาน</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Prompt', 'Segoe UI', sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; }
+
+  .hero { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; text-align: center; padding: 48px 20px 56px; }
+  .hero-logo { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .hero-icon { width: 52px; height: 52px; background: linear-gradient(135deg, #f97316, #ea580c); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 8px 24px rgba(249,115,22,0.4); }
+  .hero h1 { font-size: 2.2rem; font-weight: 800; background: linear-gradient(135deg, #f97316, #fb923c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { color: #94a3b8; font-size: 1rem; margin-top: 8px; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+
+  /* Section headers */
+  .section-title { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+  .section-badge { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+  .section-title h2 { font-size: 1.3rem; font-weight: 700; }
+  .section-title p { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+
+  /* Flow cards */
+  .flow-row { display: flex; align-items: flex-start; gap: 0; margin-bottom: 40px; overflow-x: auto; padding-bottom: 8px; }
+  .flow-card { background: white; border-radius: 20px; padding: 20px 16px; min-width: 160px; max-width: 180px; flex-shrink: 0; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 2px solid transparent; transition: transform 0.2s; }
+  .flow-card:hover { transform: translateY(-3px); }
+  .flow-card .emoji { font-size: 2rem; margin-bottom: 8px; display: block; }
+  .flow-card .step-num { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: white; margin-bottom: 8px; }
+  .flow-card .title { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+  .flow-card .desc { font-size: 0.72rem; color: #64748b; line-height: 1.5; }
+
+  .arrow { display: flex; align-items: center; padding: 0 4px; flex-shrink: 0; margin-top: 40px; }
+  .arrow svg { color: #cbd5e1; }
+
+  /* Color themes */
+  .customer .flow-card { border-color: #fed7aa; }
+  .customer .flow-card .step-num { background: #f97316; }
+  .customer .flow-card .emoji-bg { background: #fff7ed; border-radius: 50%; width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 1.5rem; }
+
+  .kitchen .flow-card { border-color: #bbf7d0; }
+  .kitchen .flow-card .step-num { background: #16a34a; }
+  .kitchen .flow-card .emoji-bg { background: #f0fdf4; border-radius: 50%; width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 1.5rem; }
+
+  .cashier .flow-card { border-color: #bfdbfe; }
+  .cashier .flow-card .step-num { background: #2563eb; }
+  .cashier .flow-card .emoji-bg { background: #eff6ff; border-radius: 50%; width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 1.5rem; }
+
+  .owner .flow-card { border-color: #ddd6fe; }
+  .owner .flow-card .step-num { background: #7c3aed; }
+  .owner .flow-card .emoji-bg { background: #f5f3ff; border-radius: 50%; width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 1.5rem; }
+
+  /* Realtime badge */
+  .rt-badge { display: inline-flex; align-items: center; gap: 4px; background: #7c3aed; color: white; font-size: 0.6rem; padding: 2px 8px; border-radius: 999px; font-weight: 600; margin-top: 6px; }
+  .rt-dot { width: 5px; height: 5px; border-radius: 50%; background: #a78bfa; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* Role cards */
+  .roles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 40px; }
+  .role-card { background: white; border-radius: 16px; padding: 20px 16px; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .role-icon { font-size: 2rem; margin-bottom: 8px; }
+  .role-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 4px; }
+  .role-email { font-size: 0.68rem; color: #64748b; background: #f8fafc; padding: 3px 8px; border-radius: 6px; font-family: monospace; }
+  .role-access { font-size: 0.7rem; color: #94a3b8; margin-top: 6px; }
+
+  .divider { height: 1px; background: #e2e8f0; margin: 40px 0; }
+
+  /* Cred box */
+  .cred-box { background: #0f172a; border-radius: 16px; padding: 24px; color: white; margin-bottom: 40px; }
+  .cred-box h3 { font-size: 0.9rem; font-weight: 700; color: #94a3b8; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .cred-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .cred-item { background: #1e293b; border-radius: 12px; padding: 12px 16px; }
+  .cred-role { font-size: 0.7rem; color: #f97316; font-weight: 600; margin-bottom: 4px; }
+  .cred-email { font-size: 0.75rem; color: #e2e8f0; font-family: monospace; }
+  .cred-pass { font-size: 0.7rem; color: #64748b; font-family: monospace; }
+
+  @media (max-width: 768px) {
+    .roles { grid-template-columns: repeat(2, 1fr); }
+    .cred-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 1.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-logo">
+    <div class="hero-icon">🍽️</div>
+    <div style="text-align:left">
+      <div style="font-size:1.8rem;font-weight:800;color:white">TableFlow</div>
+      <div style="font-size:0.8rem;color:#64748b">ระบบสั่งอาหารผ่าน QR Code</div>
+    </div>
+  </div>
+  <p>สแกน QR → เลือกเมนู → สั่งอาหาร → ชำระเงิน · ทุกขั้นตอน Real-time</p>
+</div>
+
+<div class="container">
+
+  <!-- Customer Flow -->
+  <div class="section-title">
+    <div class="section-badge" style="background:#fff7ed;font-size:1.4rem">📱</div>
+    <div>
+      <h2 style="color:#ea580c">ลูกค้า — ขั้นตอนการสั่งอาหาร</h2>
+      <p>ไม่ต้องดาวน์โหลดแอป ไม่ต้องสมัครสมาชิก</p>
+    </div>
+  </div>
+
+  <div class="flow-row customer">
+    <div class="flow-card">
+      <span class="step-num">1</span>
+      <div class="emoji-bg">📲</div>
+      <div class="title">สแกน QR</div>
+      <div class="desc">สแกน QR ที่โต๊ะ ระบบรู้ทันทีว่าโต๊ะไหน ถ้ามีออร์เดอร์ค้างจะแสดงปุ่มกลับไปดูออร์เดอร์ทันที</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <span class="step-num">2</span>
+      <div class="emoji-bg">🍜</div>
+      <div class="title">ดูเมนู</div>
+      <div class="desc">เลือกอาหาร เพิ่ม option เช่น ระดับความเผ็ด</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <span class="step-num">3</span>
+      <div class="emoji-bg">🛒</div>
+      <div class="title">ยืนยันออร์เดอร์</div>
+      <div class="desc">ตรวจรายการ ใส่หมายเหตุ แล้วกดสั่ง</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <span class="step-num">4</span>
+      <div class="emoji-bg">🔔</div>
+      <div class="title">ติดตามสถานะ</div>
+      <div class="desc">เห็น Received → Preparing → Ready แบบสด</div>
+      <div class="rt-badge"><div class="rt-dot"></div>Real-time</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <span class="step-num">5</span>
+      <div class="emoji-bg">💳</div>
+      <div class="title">ชำระเงิน</div>
+      <div class="desc">สแกน PromptPay QR หรือรอพนักงานเก็บเงิน</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Kitchen Flow -->
+  <div class="section-title">
+    <div class="section-badge" style="background:#f0fdf4;font-size:1.4rem">👨‍🍳</div>
+    <div>
+      <h2 style="color:#16a34a">ครัว — รับและทำออร์เดอร์</h2>
+      <p>ออร์เดอร์ใหม่ขึ้นทันทีบนหน้าจอครัว</p>
+    </div>
+  </div>
+
+  <div class="flow-row kitchen">
+    <div class="flow-card">
+      <span class="step-num">1</span>
+      <div class="emoji-bg">🔔</div>
+      <div class="title">รับออร์เดอร์</div>
+      <div class="desc">ออร์เดอร์ใหม่โผล่ทันที พร้อมเสียงแจ้งเตือน</div>
+      <div class="rt-badge"><div class="rt-dot"></div>Real-time</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <span class="step-num">2</span>
+      <div class="emoji-bg">✅</div>
+      <div class="title">กด Accept</div>
+      <div class="desc">ยืนยันรับออร์เดอร์ สถานะเปลี่ยนเป็น Confirmed</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <span class="step-num">3</span>
+      <div class="emoji-bg">🔥</div>
+      <div class="title">Start Cooking</div>
+      <div class="desc">กำลังทำอาหาร สถานะเป็น Preparing (สีเหลือง)</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <span class="step-num">4</span>
+      <div class="emoji-bg">🍽️</div>
+      <div class="title">Mark Ready</div>
+      <div class="desc">อาหารพร้อม แจ้งลูกค้าและแคชเชียร์อัตโนมัติ</div>
+      <div class="rt-badge"><div class="rt-dot"></div>แจ้งทันที</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Cashier Flow -->
+  <div class="section-title">
+    <div class="section-badge" style="background:#eff6ff;font-size:1.4rem">💵</div>
+    <div>
+      <h2 style="color:#2563eb">แคชเชียร์ — จัดการโต๊ะและชำระเงิน</h2>
+      <p>เห็นสถานะทุกโต๊ะแบบ real-time</p>
+    </div>
+  </div>
+
+  <div class="flow-row cashier">
+    <div class="flow-card">
+      <span class="step-num">1</span>
+      <div class="emoji-bg">🗺️</div>
+      <div class="title">แผนผังโต๊ะ</div>
+      <div class="desc">เห็นสถานะทุกโต๊ะ ว่าง / มีลูกค้า / รอชำระ</div>
+      <div class="rt-badge"><div class="rt-dot"></div>Real-time</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <span class="step-num">2</span>
+      <div class="emoji-bg">🙋</div>
+      <div class="title">รับแจ้งเตือน</div>
+      <div class="desc">ลูกค้าขอเก็บเงิน / ขอความช่วยเหลือ พร้อมเสียง</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <span class="step-num">3</span>
+      <div class="emoji-bg">📋</div>
+      <div class="title">ดูรายการ</div>
+      <div class="desc">คลิกโต๊ะเห็นรายการอาหารและยอดรวมทันที</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <span class="step-num">4</span>
+      <div class="emoji-bg">✅</div>
+      <div class="title">ยืนยันชำระ</div>
+      <div class="desc">เลือกเงินสดหรือ PromptPay แล้วกดยืนยัน</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <span class="step-num">5</span>
+      <div class="emoji-bg">🧹</div>
+      <div class="title">เคลียร์โต๊ะ</div>
+      <div class="desc">โต๊ะกลับเป็นว่าง พร้อมรับลูกค้าคนต่อไป</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Owner Flow -->
+  <div class="section-title">
+    <div class="section-badge" style="background:#f5f3ff;font-size:1.4rem">👔</div>
+    <div>
+      <h2 style="color:#7c3aed">เจ้าของ — ดู Analytics และจัดการร้าน</h2>
+      <p>ข้อมูลยอดขายและเมนูทั้งหมดในที่เดียว</p>
+    </div>
+  </div>
+
+  <div class="flow-row owner">
+    <div class="flow-card">
+      <div class="emoji-bg" style="background:#f5f3ff">📊</div>
+      <div class="title">Dashboard</div>
+      <div class="desc">ยอดขายวันนี้ โต๊ะที่ใช้งาน ออร์เดอร์รอ</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <div class="emoji-bg" style="background:#f5f3ff">📈</div>
+      <div class="title">Analytics</div>
+      <div class="desc">กราฟยอดขาย 7/14/30 วัน เมนูขายดี</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <div class="emoji-bg" style="background:#f5f3ff">🍜</div>
+      <div class="title">จัดการเมนู</div>
+      <div class="desc">เพิ่ม/ลบ/แก้เมนู ปิด-เปิดรายการได้ทันที</div>
+    </div>
+    <div class="arrow"><svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+
+    <div class="flow-card">
+      <div class="emoji-bg" style="background:#f5f3ff">👥</div>
+      <div class="title">จัดการพนักงาน</div>
+      <div class="desc">เพิ่มพนักงาน กำหนด role ครัว/แคชเชียร์</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Login credentials -->
+  <div class="cred-box">
+    <h3>🔑 ข้อมูล Login (Demo)</h3>
+    <div class="cred-grid">
+      <div class="cred-item">
+        <div class="cred-role">👔 เจ้าของร้าน</div>
+        <div class="cred-email">owner@demo.com</div>
+        <div class="cred-pass">password123</div>
+      </div>
+      <div class="cred-item">
+        <div class="cred-role">👨‍🍳 ครัว</div>
+        <div class="cred-email">kitchen@demo.com</div>
+        <div class="cred-pass">password123</div>
+      </div>
+      <div class="cred-item">
+        <div class="cred-role">💵 แคชเชียร์</div>
+        <div class="cred-email">cashier@demo.com</div>
+        <div class="cred-pass">password123</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- URLs -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+    <div style="background:white;border-radius:16px;padding:20px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
+      <div style="font-size:1.8rem;margin-bottom:8px">📱</div>
+      <div style="font-weight:700;font-size:0.9rem;color:#1e293b">ลูกค้า</div>
+      <div style="font-size:0.72rem;color:#64748b;margin-top:4px;font-family:monospace">localhost:3000/demo-bistro/A1</div>
+    </div>
+    <div style="background:white;border-radius:16px;padding:20px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
+      <div style="font-size:1.8rem;margin-bottom:8px">🖥️</div>
+      <div style="font-weight:700;font-size:0.9rem;color:#1e293b">Admin Dashboard</div>
+      <div style="font-size:0.72rem;color:#64748b;margin-top:4px;font-family:monospace">localhost:3002</div>
+    </div>
+    <div style="background:white;border-radius:16px;padding:20px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
+      <div style="font-size:1.8rem;margin-bottom:8px">⚡</div>
+      <div style="font-weight:700;font-size:0.9rem;color:#1e293b">API</div>
+      <div style="font-size:0.72rem;color:#64748b;margin-top:4px;font-family:monospace">localhost:3001/api</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

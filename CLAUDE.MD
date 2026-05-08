@@ -1,6 +1,6 @@
 # TableFlow — QR Restaurant Ordering SaaS
 
-End-to-end restaurant ordering ecosystem: customer PWA (QR → order → pay → review) + admin system (kitchen display, cashier, owner analytics). Multi-tenant, production-ready, real-time.
+End-to-end restaurant ordering ecosystem: customer PWA (QR → order → pay) + admin system (kitchen display, cashier, owner analytics). Multi-tenant, production-ready, real-time.
 
 ---
 
@@ -33,9 +33,7 @@ TableFlow ถูกออกแบบรอบ **3 หลักการหล�
 │         + เลขโต๊ะ                         ↓                       │
 │                                   ติดตามสถานะ (WebSocket)        │
 │                                           ↓                       │
-│                                   ชำระเงิน PromptPay             │
-│                                           ↓                       │
-│                                   ให้คะแนนรีวิว                   │
+│                                   ชำระเงิน PromptPay / เงินสด   │
 └───────────────────────────┬─────────────────────────────────────┘
                             │ WebSocket Events
             ┌───────────────▼────────────────────┐
@@ -68,6 +66,10 @@ TableFlow ถูกออกแบบรอบ **3 หลักการหล�
 1. สแกน QR ที่โต๊ะ
    └─ URL: /demo-bistro/A1
    └─ ระบบดึงข้อมูลร้านและโต๊ะ แสดง Landing Page
+   └─ ถ้ามีออร์เดอร์ค้างอยู่ → แสดง Banner "คุณมีออร์เดอร์ที่กำลังดำเนินการอยู่"
+      • ปุ่ม "ติดตามออร์เดอร์" → กลับไปหน้าสถานะ
+      • ปุ่ม "ชำระเงิน" → ไปหน้าชำระโดยตรง
+      • ตรวจจาก localStorage (ออร์เดอร์ลูกค้าสั่งเอง) + API (cashier สั่งแทน)
 
 2. กด "เริ่มสั่งอาหาร"
    └─ URL: /demo-bistro/A1/menu
@@ -90,19 +92,13 @@ TableFlow ถูกออกแบบรอบ **3 หลักการหล�
    └─ URL: /demo-bistro/A1/order/{orderId}
    └─ แสดง Stepper: Received → Confirmed → Preparing → Ready → Served
    └─ รับ WebSocket event "order:updated" อัปเดต UI แบบสด
-   └─ มีปุ่ม "เรียกพนักงาน" (ขอน้ำ / ขอบิล / ขอความช่วยเหลือ)
+   └─ มีปุ่ม "เรียกพนักงาน" (ขอบิล / ขอความช่วยเหลือ)
 
 6. ชำระเงิน
    └─ URL: /demo-bistro/A1/payment/{orderId}
-   └─ GET /public/{slug}/payments/{orderId} → สร้าง PromptPay QR
-   └─ Poll ทุก 3 วิ รอแคชเชียร์กด "ยืนยัน"
-   └─ รับ event "payment:confirmed" → redirect ไปหน้า Review
-
-7. ให้คะแนน
-   └─ URL: /demo-bistro/A1/review/{orderId}
-   └─ เลือก emoji + ดาว 1-5 + ความคิดเห็น
-   └─ POST /public/{slug}/reviews/{orderId}
-   └─ ถ้า rating ≥ 4 → redirect ไป Google Maps (ให้รีวิวต่อ)
+   └─ GET /public/{slug}/payments/{orderId} → สร้าง PromptPay QR (Xendit)
+   └─ Poll ทุก 3 วิ รอแคชเชียร์กด "ยืนยัน" หรือรับ webhook อัตโนมัติ
+   └─ รับ event "payment:confirmed" → แสดงหน้าขอบคุณ
 ```
 
 ---
@@ -113,7 +109,7 @@ TableFlow ถูกออกแบบรอบ **3 หลักการหล�
 1. เข้าสู่ระบบ → /login (email: kitchen@demo.com / password123)
 2. ไปที่ /kitchen
 3. WebSocket connect → emit "join:restaurant" เข้า room ของร้าน
-4. รับ event "order:new" → การ์ดออร์เดอร์ใหม่โผล่ขึ้น (สีแดง + ping)
+4. รับ event "order:new" → การ์ดออร์เดอร์ใหม่โผล่ขึ้น (สีแดง + เสียงแจ้งเตือน)
 5. กด "Accept" → PATCH /admin/orders/{id}/status { status: "CONFIRMED" }
 6. กด "Start Cooking" → status เปลี่ยนเป็น PREPARING (สีเหลือง)
 7. กด "Mark Ready" → status เปลี่ยนเป็น READY (สีเขียว)
@@ -129,11 +125,18 @@ TableFlow ถูกออกแบบรอบ **3 หลักการหล�
 2. ไปที่ /cashier
 3. เห็น Table Grid แสดงสถานะโต๊ะทุกโต๊ะแบบ real-time
    └─ สีเขียว = ว่าง, ส้ม = มีลูกค้า, แดง = รอชำระเงิน
-4. รับ alert "Staff Call" เมื่อลูกค้ากดเรียกพนักงาน
+4. รับ alert "เรียกพนักงาน" เมื่อลูกค้ากดเรียก (ขอชำระเงิน / ขอความช่วยเหลือ)
+   └─ เสียงแจ้งเตือน + TTS ภาษาไทย บอกหมายเลขโต๊ะ + ประเภทการเรียก
 5. คลิกโต๊ะ → เปิด Side Panel แสดงรายการอาหารและยอดรวม
-6. กด "Confirm Payment" → POST /admin/payments/{orderId}/confirm
-   └─ API อัปเดตสถานะโต๊ะเป็น AVAILABLE
-   └─ WebSocket แจ้งลูกค้า → redirect ไปหน้า Review
+6. เลือกวิธีชำระเงิน: เงินสด หรือ PromptPay QR
+   └─ เงินสด → กด "ยืนยันชำระเงิน" → POST /admin/payments/{orderId}/confirm
+   └─ PromptPay → ระบบ gen QR ขึ้นมาให้สแกน → กด "ยืนยันการชำระแล้ว"
+7. หลังยืนยัน → โต๊ะสถานะเปลี่ยนเป็น AVAILABLE + WebSocket แจ้งลูกค้า
+
+สั่งอาหารแทนลูกค้า (Walk-in / Phone order):
+└─ กด "สั่งอาหารแทนลูกค้า" → /cashier/order
+└─ เลือกโต๊ะ → เลือกเมนู → ใส่หมายเหตุ → กด "ส่งออร์เดอร์เข้าครัว"
+└─ ออร์เดอร์เข้าครัวทันที ไม่มีขั้นตอนชำระเงินทันที
 ```
 
 ---
@@ -154,6 +157,8 @@ TableFlow ถูกออกแบบรอบ **3 หลักการหล�
 ### ขั้นตอนการรันระบบ (Step-by-step)
 
 > **ความต้องการ:** Node.js ≥ 20, pnpm ≥ 9, Docker Desktop
+>
+> **หมายเหตุ WSL (Windows):** Docker ต้องรันใน PowerShell, `pnpm dev` ต้องรันใน WSL terminal
 
 #### Step 1 — ติดตั้ง Dependencies
 
@@ -168,7 +173,7 @@ pnpm install
 #### Step 2 — เริ่ม Database (ต้องมี Docker)
 
 ```bash
-# รัน PostgreSQL + Redis ใน background
+# รันใน PowerShell (Windows) หรือ Terminal ปกติ
 docker-compose up postgres redis -d
 
 # รอ ~10 วิ แล้วตรวจสอบว่า healthy
@@ -181,11 +186,11 @@ docker-compose ps
 # Windows (PowerShell)
 Copy-Item apps\api\.env.example apps\api\.env
 
-# Mac/Linux
+# Mac/Linux/WSL
 cp apps/api/.env.example apps/api/.env
 ```
 
-ไฟล์ `apps/api/.env` มีค่า default ที่ใช้กับ Docker ได้เลย ไม่ต้องแก้ไขอะไร
+ไฟล์ `apps/api/.env` มีค่า default ที่ใช้กับ Docker ได้เลย ไม่ต้องแก้ไขอะไร (ยกเว้น XENDIT_SECRET_KEY ถ้าต้องการ PromptPay จริง)
 
 #### Step 4 — สร้าง Database Schema + ข้อมูลตัวอย่าง
 
@@ -205,8 +210,6 @@ pnpm db:seed
 #### Step 5 — รันระบบทั้งหมดพร้อมกัน
 
 ```bash
-pnpm install
-
 pnpm dev
 ```
 
@@ -228,6 +231,13 @@ Turborepo จะรัน 3 services พร้อมกัน:
 1. เปิด http://localhost:3000/demo-bistro/A1 บนมือถือ (หรือ DevTools mobile view)
 2. เปิด http://localhost:3002 แล้วล็อกอินเป็น kitchen@demo.com
 3. สั่งอาหารจากฝั่งลูกค้า → ดูออร์เดอร์โผล่ในหน้าครัวแบบ real-time
+
+#### แก้ปัญหา Port ชนกัน (กรณี restart เครื่อง)
+
+```bash
+# ถ้า API ไม่ start เพราะ port 3001 ถูกใช้อยู่
+kill $(lsof -t -i:3001)
+```
 
 #### คำสั่งอื่นที่มีประโยชน์
 
@@ -260,6 +270,7 @@ tableflow/
 │   ├── database/     Prisma schema + client + seed
 │   └── types/        Shared TypeScript types + WebSocket event constants
 ├── docker-compose.yml  Local dev (postgres + redis + all apps)
+├── flow-diagram.html   User-friendly visual flow diagram (open in browser)
 └── turbo.json
 ```
 
@@ -273,23 +284,19 @@ tableflow/
 # 1. Install dependencies
 pnpm install
 
-# 2. Start Postgres + Redis
+# 2. Start Postgres + Redis (run in PowerShell on Windows)
 docker-compose up postgres redis -d
 
 # 3. Copy env files
 cp apps/api/.env.example apps/api/.env
-cp apps/customer/.env.example apps/customer/.env     # optional
-cp apps/admin/.env.example apps/admin/.env           # optional
 
 # 4. Run DB migrations + seed
+pnpm db:generate
 pnpm db:migrate:dev
 pnpm db:seed
 
 # 5. Start everything
 pnpm dev
-
-# Or with Docker (all services)
-docker-compose up
 ```
 
 | Service   | URL                                   |
@@ -310,19 +317,23 @@ docker-compose up
 
 ```
 QR Scan  →  /{tenant}/{table}  (Landing)
-             ↓
+             │
+             ├─ [มีออร์เดอร์ค้าง] → Banner → /{tenant}/{table}/order/{orderId}
+             │                              → /{tenant}/{table}/payment/{orderId}
+             │
+             ↓ [ไม่มีออร์เดอร์]
          /{tenant}/{table}/menu  (Browse + add to cart)
              ↓
          /{tenant}/{table}/cart  (Review + place order)
              ↓
          /{tenant}/{table}/order/{orderId}  (Live tracking)
              ↓
-         /{tenant}/{table}/payment/{orderId}  (PromptPay QR)
+         /{tenant}/{table}/payment/{orderId}  (PromptPay QR / Cash)
              ↓
-         /{tenant}/{table}/review/{orderId}  (Rating → Google Maps if ≥4★)
+         ขอบคุณ / หน้าสรุปคำสั่งซื้อ
 ```
 
-State: Zustand cart store persisted to localStorage (key: `tableflow-cart`). Session code generated once per table visit.
+State: Zustand cart store persisted to localStorage (key: `tableflow-cart`). `activeOrderId` saved after place order, cleared on payment confirmed. Banner checks localStorage first, falls back to API (`table.activeOrderId`) for cashier-placed orders.
 
 ---
 
@@ -334,10 +345,45 @@ State: Zustand cart store persisted to localStorage (key: `tableflow-cart`). Ses
 | /                | OWNER, ADMIN              | KPI dashboard + sales charts     |
 | /kitchen         | OWNER, ADMIN, KITCHEN     | Real-time KDS order cards        |
 | /cashier         | OWNER, ADMIN, CASHIER     | Table map + order panel + pay    |
+| /cashier/order   | OWNER, ADMIN, CASHIER     | Order on behalf of customer      |
 | /menu            | OWNER, ADMIN              | CRUD menu items + availability   |
 | /tables          | OWNER, ADMIN, CASHIER     | Table status management          |
 | /staff           | OWNER, ADMIN              | Staff CRUD + role assignment     |
 | /analytics       | OWNER, ADMIN              | Sales trend + popular items      |
+
+---
+
+## Cashier Features
+
+### Payment Flow
+- แคชเชียร์คลิกโต๊ะ → เปิด side panel → เลือก CASH หรือ PROMPTPAY
+- **CASH**: กด "ยืนยันชำระเงิน" → confirm ทันที
+- **PROMPTPAY**: ระบบเรียก `GET /api/public/{slug}/payments/{orderId}` เพื่อสร้าง Xendit QR → แสดง QR modal พร้อม Order ID สำหรับ copy
+  - **Auto-verify**: poll ทุก 3 วิ + รับ WebSocket `payment:confirmed` → modal ปิดเองเมื่อชำระสำเร็จ
+  - **Manual fallback**: กด "ยืนยันรับชำระเงินแล้ว" ได้เสมอ (ใช้ตอน dev หรือ webhook ไม่มา)
+- ไม่ต้องรอให้ลูกค้ากดเรียกก่อน — แคชเชียร์กดได้เลยทุกเวลา
+
+### Order on Behalf (สั่งแทนลูกค้า)
+- กด "สั่งอาหารแทนลูกค้า" → `/cashier/order`
+- เลือกโต๊ะ → เลือกเมนู → ใส่หมายเหตุ (optional) → ส่งเข้าครัว
+- ออร์เดอร์เข้าสู่ kitchen display ทันที ผ่าน WebSocket
+
+### Staff Calls
+- แสดงในส่วน "เรียกพนักงาน" ด้านบน (badge แสดงจำนวน)
+- ประเภทที่รองรับ: **ขอชำระเงิน**, **ขอความช่วยเหลือ**
+- เสียงแจ้งเตือน TTS ภาษาไทย: "โต๊ะ A1 ขอชำระเงิน"
+
+---
+
+## Sound Notifications
+
+ใช้ Web Audio API (beep) + Web Speech API (Thai TTS)
+
+- **เสียง beep**: `apps/admin/src/lib/sound.ts` — `beep()` async, รองรับ AudioContext unlock
+- **Thai TTS**: ใช้ `Microsoft Pattara` voice (Windows) หรือ voice ภาษาไทยที่มีในระบบ
+- **Unlock audio**: Sidebar กด click ครั้งแรกจะ unlock AudioContext อัตโนมัติ (`unlockAudio()`)
+- ครัว: beep เมื่อมีออร์เดอร์ใหม่
+- แคชเชียร์: TTS ภาษาไทยเมื่อมี staff call
 
 ---
 
@@ -352,8 +398,8 @@ State: Zustand cart store persisted to localStorage (key: `tableflow-cart`). Ses
 | POST   | /api/public/:slug/orders                          | Place order          |
 | GET    | /api/public/:slug/orders/:id                      | Order status         |
 | POST   | /api/public/:slug/orders/:id/staff-call           | Call staff           |
-| GET    | /api/public/:slug/payments/:orderId               | Get/create payment   |
-| POST   | /api/public/:slug/reviews/:orderId                | Submit review        |
+| GET    | /api/public/:slug/payments/:orderId               | Get/create payment (Xendit QR) |
+| POST   | /api/webhooks/xendit                              | Xendit payment webhook |
 
 ### Admin (JWT Bearer token required)
 
@@ -421,8 +467,7 @@ Tenant          — SaaS tenant (restaurant)
   └─ Order      — Per-table session order
      └─ OrderItem    — Line item with quantity + selected options
      └─ Payment      — Payment record (PromptPay/Cash/etc)
-     └─ Review       — Customer review (1-5 stars)
-     └─ StaffCall    — Assistance/water/payment calls
+     └─ StaffCall    — Assistance/payment calls from customer
 ```
 
 All tenant data is isolated by `tenantId`. The seed creates `demo-bistro` with 10 tables and a full Thai menu.
@@ -433,13 +478,17 @@ All tenant data is isolated by `tenantId`. The seed creates `demo-bistro` with 1
 
 ### apps/api
 ```
-DATABASE_URL        postgresql://...
-REDIS_URL           redis://...
-JWT_SECRET          min 32 chars random string
-JWT_EXPIRES_IN      7d
-PORT                3001
-CORS_ORIGINS        http://localhost:3000,http://localhost:3002
+DATABASE_URL          postgresql://...
+REDIS_URL             redis://...
+JWT_SECRET            min 32 chars random string
+JWT_EXPIRES_IN        7d
+PORT                  3001
+CORS_ORIGINS          http://localhost:3000,http://localhost:3002
+XENDIT_SECRET_KEY     xnd_... (Xendit API key สำหรับ PromptPay QR จริง)
+XENDIT_CALLBACK_TOKEN  (สำหรับ verify webhook จาก Xendit)
 ```
+
+> ถ้าไม่มี XENDIT_SECRET_KEY ระบบจะ fallback เป็น mock QR (สำหรับ dev/demo)
 
 ### apps/customer / apps/admin
 ```
@@ -482,34 +531,42 @@ To onboard a new restaurant:
 
 ## Production Deployment
 
-1. Build all images: `docker-compose -f docker-compose.prod.yml build`
-2. Deploy Postgres to managed DB (AWS RDS / Supabase / PlanetScale)
-3. Deploy API to AWS ECS / Railway / Render
-4. Deploy customer + admin to Vercel (set env vars)
-5. Configure load balancer + SSL
-6. Set `CORS_ORIGINS` to production domains
-7. Run `pnpm db:migrate:deploy` against prod DB
+### VPS + Docker (แนะนำ — ควบคุมได้ทั้งหมด)
+
+```bash
+# 1. ติดตั้ง Docker บน server
+curl -fsSL https://get.docker.com | sh
+
+# 2. Clone + ตั้ง .env
+git clone <repo>
+cp apps/api/.env.example apps/api/.env
+# แก้ DATABASE_URL, REDIS_URL, JWT_SECRET, CORS_ORIGINS, XENDIT_SECRET_KEY
+
+# 3. Build + Run
+docker-compose -f docker-compose.prod.yml up -d
+
+# 4. Run migration
+pnpm db:migrate:deploy
+```
+
+**Nginx สำหรับ WebSocket:**
+```nginx
+location /socket.io/ {
+    proxy_pass http://localhost:3001;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}
+```
+
+### Managed Services (ง่ายกว่า)
+
+| Service  | Provider                        |
+|----------|---------------------------------|
+| Database | Supabase / AWS RDS              |
+| Redis    | Upstash                         |
+| API      | Railway / Render                |
+| Customer | Vercel                          |
+| Admin    | Vercel                          |
 
 Horizontal scaling: API is stateless. Socket.IO requires sticky sessions or Redis adapter for multi-instance.
-
-
-
-เปลี่ยนแค่ reference_id เป็น order ใหม่:
-
-
-curl -X POST http://localhost:3001/api/webhooks/xendit \
-  -H "Content-Type: application/json" \
-  -d '{
-    "event": "qr.payment",
-    "business_id": "test",
-    "created": "2026-05-07T00:00:00Z",
-    "data": {
-      "id": "qr_test_123",
-      "reference_id": "cmovnko120005a6qfhu1h6wz2",
-      "status": "SUCCEEDED",
-      "currency": "THB",
-      "amount": 100,
-      "qr_string": "test",
-      "channel_code": "PROMPTPAY"
-    }
-  }'

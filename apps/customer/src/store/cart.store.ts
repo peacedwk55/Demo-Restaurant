@@ -8,8 +8,10 @@ interface CartStore {
   tenantSlug: string | null
   tableId: string | null
   tableCode: string | null
+  activeOrderId: string | null
 
   setSession: (data: { sessionCode: string; tenantSlug: string; tableId: string; tableCode: string }) => void
+  setActiveOrder: (orderId: string | null) => void
   addItem: (item: CartItem) => void
   removeItem: (index: number) => void
   updateQuantity: (index: number, quantity: number) => void
@@ -28,8 +30,10 @@ export const useCartStore = create<CartStore>()(
       tenantSlug: null,
       tableId: null,
       tableCode: null,
+      activeOrderId: null,
 
       setSession: (data) => set(data),
+      setActiveOrder: (orderId) => set({ activeOrderId: orderId }),
 
       addItem: (newItem) =>
         set((state) => {
@@ -84,6 +88,7 @@ export const useCartStore = create<CartStore>()(
         tenantSlug: state.tenantSlug,
         tableId: state.tableId,
         tableCode: state.tableCode,
+        activeOrderId: state.activeOrderId,
       }),
     }
   )

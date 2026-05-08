@@ -219,11 +219,6 @@ function FoodCard({ item, onSelect }: { item: MenuItemDto; onSelect: (item: Menu
       </div>
       <div className="px-3 py-2.5">
         <p className="text-sm font-semibold text-stone-900 line-clamp-2 leading-snug">{item.name}</p>
-        {item.preparationTime && (
-          <p className="text-xs text-stone-400 mt-1 flex items-center gap-1">
-            <Clock className="w-3 h-3" />{item.preparationTime} นาที
-          </p>
-        )}
       </div>
     </button>
   )

@@ -9,6 +9,7 @@ import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
+import { useCartStore } from '@/store/cart.store'
 
 const DOTS = [
   { label: 'ส่งออร์เดอร์แล้ว', sublabel: 'รอครัวรับออร์เดอร์', emoji: '📋', lit: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'SERVED'] },
@@ -25,6 +26,7 @@ const getCurrentDotIdx = (status: OrderStatus) => {
 export default function OrderStatusPage() {
   const params = useParams<{ tenant: string; table: string; orderId: string }>()
   const router = useRouter()
+  const { setActiveOrder } = useCartStore()
   const [order, setOrder] = useState<OrderDto | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -55,6 +57,7 @@ export default function OrderStatusPage() {
     },
     onPaymentConfirmed: ({ orderId }) => {
       if (orderId === params.orderId) {
+        setActiveOrder(null)
         toast.success('ชำระเงินเรียบร้อย! ขอบคุณที่ใช้บริการ 🙏', { duration: 4000 })
         setTimeout(() => router.push(`/${params.tenant}/${params.table}`), 2000)
       }

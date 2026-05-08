@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import { Utensils, QrCode, ChevronRight } from 'lucide-react'
+import ActiveOrderBanner from '@/components/ActiveOrderBanner'
 
 interface Props {
   params: { tenant: string; table: string }
@@ -55,6 +56,9 @@ export default async function LandingPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Active order banner — checks localStorage (customer order) + API (cashier-placed order) */}
+      <ActiveOrderBanner tenant={params.tenant} table={params.table.toUpperCase()} tableId={table.id} apiOrderId={table.activeOrderId} />
 
       {/* Features */}
       <div className="px-5 pt-6 flex-1">
