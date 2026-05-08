@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import ActiveOrderBanner from './ActiveOrderBanner'
 
 interface Props {
   menu: MenuDto
@@ -15,9 +16,10 @@ interface Props {
   tableCode: string
   tenant: string
   table: string
+  apiOrderId?: string | null
 }
 
-export default function MenuScreen({ menu, tableId, tableCode, tenant, table }: Props) {
+export default function MenuScreen({ menu, tableId, tableCode, tenant, table, apiOrderId }: Props) {
   const router = useRouter()
   const { items, addItem, totalItems, totalPrice, setSession, sessionCode } = useCartStore()
   const [activeCat, setActiveCat] = useState(menu.categories[0]?.id ?? '')
@@ -118,6 +120,7 @@ export default function MenuScreen({ menu, tableId, tableCode, tenant, table }: 
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto pb-32">
+        <ActiveOrderBanner tenant={tenant} table={table} tableId={tableId} apiOrderId={apiOrderId} />
         {search ? (
           <div className="px-4 pt-5">
             <p className="text-xs text-stone-400 font-medium mb-4">พบ {filteredItems.length} รายการสำหรับ "{search}"</p>

@@ -21,6 +21,7 @@ export default async function MenuPage({ params }: Props) {
       tableCode={table.name}
       tenant={params.tenant}
       table={params.table}
+      apiOrderId={table.activeOrderId}
     />
   )
 }
